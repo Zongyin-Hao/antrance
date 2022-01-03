@@ -1,0 +1,245 @@
+package xmu.wrxlab.antrance.uitree;
+
+import android.graphics.Rect;
+import android.os.Build;
+import android.util.Log;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+
+import androidx.annotation.RequiresApi;
+
+import org.dom4j.Document;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
+
+import java.util.ArrayList;
+import java.util.List;
+
+// 只记录用户可见节点, 有两点需要注意:
+// 1. 节点位置可能超出主窗口边界, 此时左上角坐标是实际坐标, 右下角坐标与主窗口右下角坐标取min
+// 比如主窗口为(0,0),(1080,1794), button为(0, 2000),(200,2200)->(200,1794)
+// 这个AccessibilityNodeInfo中的visibleToUser帮我们计算好了
+// 2. 不同层级的窗口间可能会有遮挡关系, 比如屏幕键盘会遮挡住下层的控件
+// 因此我们的记录规则如下:
+// 1. 控件的矩形区域与屏幕区域有相交的部分
+// 2. 没有被高层控件完全遮挡, 参考下面的遮挡计算规则:
+// 当出现局部遮挡时, 要重新计算bounds, 规则如下:
+// 假设A和B相交, 要重新计算B, 那么先算出A和B的相交矩形C, 接着计算B中C上/下/左/右部分的面积, 选面积最大的那部分更新B
+// [B]                       [B]
+// ------------------        ------------------
+// |                |        |                |
+// |                |        |                |
+// |        U       |        |                |
+// |   ----------   |        |----------------|
+// |   |        |   |   --->
+// | L |   [C]  | R |
+// |   |        |   |
+// |   ----------   |
+// |        D       |
+// ------------------
+// 这个例子中C上部分面积最大, B更新为C上部分
+// 特别地, 规定同一个bounds中相对的两条边坐标至少差2, 否则视为不可见(这样是为了方便中心定位)
+
+public class UITree {
+    private int dfsCnt;
+    private final List<UINode> roots;
+
+    public UITree() {
+        dfsCnt = 0;
+        roots = new ArrayList<>();
+    }
+
+    public int nextDFS() {
+        int ans = dfsCnt;
+        dfsCnt++;
+        return ans;
+    }
+
+    public void addRoot(UINode root) {
+        roots.add(root);
+    }
+
+    public List<UINode> getRoots() {
+        return roots;
+    }
+
+    interface MyInterface {
+        void lamda(String prefix, UINode node);
+    }
+
+    public void foreach(MyInterface func) {
+        for (UINode root : roots) {
+            foreachDFS("", root, func);
+        }
+    }
+
+    private void foreachDFS(String prefix, UINode cur, MyInterface func) {
+        func.lamda(prefix, cur);
+        for (UINode nex : cur.getChildren()) {
+            foreachDFS(prefix+"|  ", nex, func);
+        }
+    }
+
+    public void debug() {
+        foreach((prefix, node) -> Log.i("antrance", prefix+node.toString()));
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public boolean edit(int dfsId, String value) {
+        boolean[] ok = new boolean[1];
+        foreach((prefix, node) -> {
+            if (node.getDFS() == dfsId) {
+                if (node.edit(value)) {
+                    ok[0] = true;
+                }
+            }
+        });
+        return ok[0];
+    }
+
+    public String dumpXML() {
+        Document document = DocumentHelper.createDocument();
+        Element rootElement = document.addElement("rt");
+
+        for (UINode rootNode : roots) {
+            dumpXMLDFS(rootElement, rootNode);
+        }
+
+        return document.asXML();
+    }
+
+    public void dumpXMLDFS(Element fatherElement, UINode curNode) {
+        Element curElement = fatherElement.addElement("nd")
+                .addAttribute("dfs", ""+curNode.getDFS())
+                .addAttribute("z", ""+curNode.getZ())
+                .addAttribute("dp", ""+curNode.getDp())
+                .addAttribute("idx", ""+curNode.getIdx())
+                .addAttribute("bds", ""+curNode.getBdsStr())
+                .addAttribute("pkg", ""+curNode.getPkg())
+                .addAttribute("cls", ""+curNode.getCls())
+                .addAttribute("res", ""+curNode.getRes())
+                .addAttribute("dsc", ""+curNode.getDsc())
+                .addAttribute("txt", ""+curNode.getTxt())
+                .addAttribute("op", ""+curNode.getOp());
+        for (UINode childNode : curNode.getChildren()) {
+            dumpXMLDFS(curElement, childNode);
+        }
+    }
+
+    public static UITree dumpUITree(List<AccessibilityWindowInfo> windows) {
+        UITree UITree = new UITree();
+        // For convenience the returned windows are ordered in a descending layer order,
+        // which is the windows that are on top are reported first.
+        for (int i = 0; i < windows.size(); i++) {
+            AccessibilityWindowInfo windowInfo = windows.get(i);
+            AccessibilityNodeInfo nodeInfo = windowInfo.getRoot();
+            if (nodeInfo == null) continue;
+            UINode node = dumpUITreeDFS(nodeInfo, windowInfo.getLayer(), 0, 0, UITree);
+            if (node != null) UITree.addRoot(node);
+        }
+        return UITree;
+    }
+
+    private static UINode dumpUITreeDFS(AccessibilityNodeInfo nodeInfo, int layer,
+                                        int depth, int index, UITree UITree) {
+        int dfs = UITree.nextDFS();
+        List<UINode> children = new ArrayList<>();
+        int count = nodeInfo.getChildCount();
+        for (int i = 0; i < count; i++) {
+            AccessibilityNodeInfo child = nodeInfo.getChild(i);
+            if (child != null) {
+                UINode node = dumpUITreeDFS(child, layer, depth+1, i, UITree);
+                if (node != null) children.add(node);
+            }
+        }
+
+        // 回溯时操作是为了保留原本的树结构信息(主要体现在dfs序上)
+        if (!nodeInfo.isVisibleToUser()) return null;
+        Rect bds = new Rect();
+        nodeInfo.getBoundsInScreen(bds);
+        if (!calVisibleToUser(nodeInfo, UITree, bds)) return null;
+
+        String pkg = safeCharSeqToString(nodeInfo.getPackageName());
+        String cls = safeCharSeqToString(nodeInfo.getClassName());
+        String res = safeCharSeqToString(nodeInfo.getViewIdResourceName());
+        String dsc = safeCharSeqToString(nodeInfo.getContentDescription());
+        String txt = safeCharSeqToString(nodeInfo.getText());
+        boolean clickable = nodeInfo.isClickable();
+        boolean longClickable = nodeInfo.isLongClickable();
+        boolean editable = nodeInfo.isEditable();
+        boolean scrollable = nodeInfo.isScrollable();
+        UINode node = new UINode(dfs, layer, depth, index, bds, pkg, cls, res, dsc, txt,
+                clickable, longClickable, editable,  scrollable, nodeInfo);
+        for (UINode child : children) {
+            node.addChild(child);
+        }
+        return node;
+    }
+
+    private static String safeCharSeqToString(CharSequence cs) {
+        if (cs != null) return cs.toString();
+        else return "";
+    }
+
+    // 不能完全超界
+    // 不能被高层完全遮挡(依照我们定义的遮挡规则)
+    // 重新计算bounds
+    // [B]                       [B]
+    // ------------------        ------------------
+    // |                |        |                |
+    // |                |        |                |
+    // |        U       |        |                |
+    // |   ----------   |        |----------------|
+    // |   |        |   |   --->
+    // | L |   [C]  | R |
+    // |   |        |   |
+    // |   ----------   |
+    // |        D       |
+    // ------------------
+    private static boolean calVisibleToUser(AccessibilityNodeInfo nodeInfo, UITree UITree, Rect rect) {
+        if (!nodeInfo.isVisibleToUser()) return false;
+        Rect B = new Rect();
+        nodeInfo.getBoundsInScreen(B);
+        if (B.width() < 2 || B.height() < 2) return false;
+        // recalculate
+        List<UINode> roots = UITree.getRoots();
+        for (int i = 0; i < roots.size(); i++) {
+            Rect A = roots.get(i).getBds();
+            if (A.contains(B)) {
+                return false;
+            }
+            Rect C = new Rect();
+            if (C.setIntersect(A, B)) {
+                Rect newB = new Rect();
+                long maxS = 0;
+                long up = (C.top-B.top)*B.width();
+                if (up > maxS) {
+                    maxS = up;
+                    newB.set(B.left, B.top, B.right, C.top);
+                }
+                long down = (B.bottom-C.bottom)*B.width();
+                if (down > maxS) {
+                    maxS = down;
+                    newB.set(B.left, C.bottom, B.right, B.bottom);
+                }
+                long left = (C.left-B.left)*B.height();
+                if (left > maxS) {
+                    maxS = left;
+                    newB.set(B.left, B.top, C.left, B.bottom);
+                }
+                long right = (B.right-C.right)*B.height();
+                if (right > maxS) {
+                    maxS = right;
+                    newB.set(C.right, B.top, B.right, B.bottom);
+                }
+                if (maxS != 0) {
+                    B.set(newB);
+                }
+            }
+        }
+        if (B.width() < 2 || B.height() < 2) return false;
+        rect.set(B);
+        return true;
+    }
+
+}

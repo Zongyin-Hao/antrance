@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://developer.android.com/reference/android/accessibilityservice/AccessibilityServiceInfo#FLAG_REPORT_VIEW_IDS
+accessibilityEventTypes:表示该服务对界面中的哪些变化感兴趣,即哪些事件通知,比如窗口打开,滑动,焦点变化,长按等.
+    具体的值可以在AccessibilityEvent类中查到,如typeAllMask表示接受所有的事件通知.
+accessibilityFeedbackType:表示反馈方式,比如是语音播放,还是震动
+accessibilityFlags:
+    default表示如果一个AccessibilityService是给定类型的默认值,
+    只有在不存在特定包的情况下, 才会调用默认服务. 如果有多个包特定的服务, 只有较早注册的服务才会被通知
+    flagRetrieveInteractiveWindows:不设置的话getWindows返回空列表
+    flagIncludeNotImportantViews:If this flag is set the system will regard views that are not
+    important for accessibility in addition to the ones that are important for accessibility.
+    // Usually views not important for accessibility are layout managers that do not react to
+    // user actions, do not draw any content, and do not have any special semantics in the context
+    // of the screen content. For example, a three by three grid can be implemented as three
+    // horizontal linear layouts and one vertical, or three vertical linear layouts and one
+    // horizontal, or one grid layout, etc. In this context, the actual layout managers used to
+    // achieve the grid configuration are not important; rather it is important that there are nine
+    // evenly distributed elements.
+    flagReportViewIds: 显示resource-id, "package:id/name"
+    // 其余的flag基本都是触摸有关的:
+canRetrieveWindowContent:表示该服务能否访问活动窗口中的内容.
+    也就是如果你希望在服务中获取窗体内容的化,则需要设置其值为true.
+notificationTimeout:接受事件的时间间隔,通常将其设置为100即可
+packageNames:Comma separated package names from which this service would
+    like to receive events (leave out for all packages).
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100" />
