@@ -2,6 +2,7 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import fi.iki.elonen.NanoHTTPD;
 import xmu.wrxlab.antrance.Antrance;
@@ -28,6 +29,15 @@ public class AntranceIns extends NanoHTTPD  {
      *     关于线程间的可见性问题, 一个变量不加volatile是有可见性问题的, 但我测试发现数组没什么问题,
      *     尽管大家推荐使用Unsafe, 不过既然我测试着没什么问题, 又不需要强可见性, 那就这样用这吧 */
     public static int[] stmtTable = null;
+    // update: thread visibility for stmtTable
+    public static AtomicIntegerArray stmtTable2 = null;
+
+    public static void setStmtTable2(int i) {
+//        if (stmtTable2.get(i) == 0) {
+//            Log.i("hzy", Thread.currentThread().getId() + "--------------------set " + i);
+//        }
+        stmtTable2.set(i, 1);
+    }
 
     /** 保证应用被kill前只能上传一次log */
     private static final AtomicBoolean oneLog = new AtomicBoolean(false);
@@ -57,7 +67,13 @@ public class AntranceIns extends NanoHTTPD  {
         jsonStr.append("\"stmts\":[");
         boolean empty = true;
         for (int i = 0; i < stmtTableSize; i++) {
-            if (stmtTable[i] != 0) {
+            // chang stmtTable to stmtTable2
+//            if (stmtTable[i] != 0) {
+//                if (!empty) jsonStr.append(",");
+//                empty = false;
+//                jsonStr.append(i);
+//            }
+            if (stmtTable2.get(i) != 0) {
                 if (!empty) jsonStr.append(",");
                 empty = false;
                 jsonStr.append(i);
@@ -112,6 +128,7 @@ public class AntranceIns extends NanoHTTPD  {
         }
 
         stmtTable = new int[stmtTableSize];
+        stmtTable2 = new AtomicIntegerArray(stmtTableSize);
 
         antranceIns = new AntranceIns();
         try {

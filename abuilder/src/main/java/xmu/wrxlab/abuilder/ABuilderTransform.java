@@ -168,6 +168,7 @@ public class ABuilderTransform extends Transform {
 
                 // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
                 URI srcURI = src.toURI();
+                System.out.println("[srcURI] "+srcURI);
                 listFilesForFolder(src, (file) -> {
                     String rPath = srcURI.relativize(file.toURI()).getPath();
                     if (srcTree.hasPath(rPath)) {

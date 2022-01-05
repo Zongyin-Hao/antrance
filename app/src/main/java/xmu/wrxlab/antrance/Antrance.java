@@ -222,4 +222,21 @@ public class Antrance extends AccessibilityService {
         super.onDestroy();
     }
 
+//    private fun requestMyPermissions() {
+//        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+//            //没有授权，编写申请权限代码
+//            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
+//        } else {
+//            Log.d("hzy", "requestMyPermissions: 有写SD权限")
+//        }
+//        if (ContextCompat.checkSelfPermission(this,
+//                        Manifest.permission.READ_EXTERNAL_STORAGE)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            //没有授权，编写申请权限代码
+//            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 100)
+//        } else {
+//            Log.d("hzy", "requestMyPermissions: 有读SD权限")
+//        }
+//    }
+
 }
