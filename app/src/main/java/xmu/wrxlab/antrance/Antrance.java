@@ -60,7 +60,7 @@ public class Antrance extends AccessibilityService {
             }
             String ans = "";
             try {
-                ans = getJson("http://"+address+"/stmtlog");
+                ans = getJson("http://"+address+"/stmtlog", "");
             } catch (IOException e) {
                 e.printStackTrace();
                 return "-1";
@@ -76,13 +76,21 @@ public class Antrance extends AccessibilityService {
             return "-2";
         }
 
+        private synchronized void setEventId(int id) {
+            try {
+                getJson("http://"+address+"/seteventid", "id="+id);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         /**
-         * http get json, 无参
+         * http get json
          * @param url 发送请求的URL
          * @return 响应结果
          */
-        private String getJson(String url) throws IOException {
-            URLConnection con = new URL(url).openConnection();
+        private String getJson(String url, String param) throws IOException {
+            URLConnection con = new URL(url+"?"+param).openConnection();
             con.setRequestProperty("Accept-Charset", "UTF-8");
             try(BufferedReader br = new BufferedReader(
                     new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
@@ -153,9 +161,19 @@ public class Antrance extends AccessibilityService {
                 } else if (uri.equals("/uitree")) {
                     Log.i("antrance", "get /uitree");
                     return NanoHTTPD.newFixedLengthResponse(getUiTree());
+                }  else if (uri.equals("/seteventid")) {
+                    Log.i("antrance", "get /seteventid");
+                    Map<String, String> parms = session.getParms();
+                    if (parms.containsKey("id")) {
+                        String id = parms.get("id");
+                        if (id != null) {
+                            setEventId(Integer.parseInt(id));
+                        }
+                    }
+                    return NanoHTTPD.newFixedLengthResponse("seteventid");
                 }
                 return NanoHTTPD.newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_HTML,
-                        "please use /init or /stmtlog or /uitree");
+                        "please use /init or /stmtlog or /uitree or seteventid");
             } else if (Method.POST.equals(session.getMethod())) {
                 if (uri.equals("/stmtlog")) {
                     Log.i("antrance", "post /stmtlog");
