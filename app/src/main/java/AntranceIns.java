@@ -2,8 +2,11 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 import fi.iki.elonen.NanoHTTPD;
@@ -34,11 +37,17 @@ public class AntranceIns extends NanoHTTPD  {
     // update: thread visibility for stmtTable
     public static AtomicLongArray stmtTable2 = null;
 
+    public static AtomicInteger eventId = new AtomicInteger(0);
+
     public static void setStmtTable2(int i) {
 //        if (stmtTable2.get(i) == 0) {
 //            Log.i("hzy", Thread.currentThread().getId() + "--------------------set " + i);
 //        }
-        stmtTable2.set(i, 1);
+        int x = eventId.get();
+        long y = stmtTable2.get(i);
+        if (0 <= x && x < 64 && (y & (1L<<x)) == 0) {
+            stmtTable2.set(i, y | (1L<<x));
+        }
     }
 
     /** 保证应用被kill前只能上传一次log */
@@ -147,11 +156,6 @@ public class AntranceIns extends NanoHTTPD  {
         super(myPort);
     }
 
-    /**
-     * http server路由.
-     * @param session NanoHttpd默认参数
-     * @return 相应请求的返回值
-     */
     @Override
     public Response serve(IHTTPSession session) {
         String uri = session.getUri();
@@ -159,10 +163,19 @@ public class AntranceIns extends NanoHTTPD  {
             if (uri.equals("/stmtlog")) {
                 Log.i("antrance", "get /stmtlog");
                 return NanoHTTPD.newFixedLengthResponse(getLogJson(true, null));
+            } else if (uri.equals("/seteventid")) {
+                Map<String, String> parms = session.getParms();
+                if (parms.containsKey("id")) {
+                    String id = parms.get("id");
+                    if (id != null) {
+                        eventId.set(Integer.parseInt(id));
+                    }
+                }
+                return NanoHTTPD.newFixedLengthResponse("seteventid");
             }
         }
         return NanoHTTPD.newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_HTML,
-                "please use GET /stmtlog");
+                "please use GET /stmtlog or /eventid");
     }
 
     static {
