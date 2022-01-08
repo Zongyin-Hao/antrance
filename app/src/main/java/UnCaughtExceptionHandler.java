@@ -20,6 +20,9 @@ class UnCaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
         Thread thread = new Thread(){
             @Override
             public void run() {
+                Log.i("antrance", "--------------------");
+                e.printStackTrace();
+                Log.i("antrance", "--------------------");
                 String jsonLog = AntranceIns.getLogJson(false, e);
                 // -1的话就没必要理会了
                 if (!jsonLog.equals("-1")) {

@@ -1,8 +1,10 @@
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 import fi.iki.elonen.NanoHTTPD;
 import xmu.wrxlab.antrance.Antrance;
@@ -30,7 +32,7 @@ public class AntranceIns extends NanoHTTPD  {
      *     尽管大家推荐使用Unsafe, 不过既然我测试着没什么问题, 又不需要强可见性, 那就这样用这吧 */
     public static int[] stmtTable = null;
     // update: thread visibility for stmtTable
-    public static AtomicIntegerArray stmtTable2 = null;
+    public static AtomicLongArray stmtTable2 = null;
 
     public static void setStmtTable2(int i) {
 //        if (stmtTable2.get(i) == 0) {
@@ -94,6 +96,51 @@ public class AntranceIns extends NanoHTTPD  {
         return jsonStr.toString();
     }
 
+    // for MyCrash
+    public static String myCrashJson(List<String> crashStack) {
+        if (oneLog.get()) return "-1";
+        oneLog.set(true);
+        // stmtLog序列化成json
+        // json格式:
+        // { "projectId"(当前程序的项目id, 用户指定):"com.example.debugapp",
+        //   "status"(程序正常/崩溃):true/false,
+        //   "stmts"(程序运行过程中执行的语句id):[0, 1, 2],
+        //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
+        //     "类@语句在文件中的源码行"
+        //   ]
+        // }
+        // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖, 因此这里采用最原始的json生成方式
+        StringBuilder jsonStr = new StringBuilder("{");
+        jsonStr.append("\"projectId\":").append("\""+projectId+"\",");
+        jsonStr.append("\"status\":").append("\"false\",");
+        jsonStr.append("\"stmts\":[");
+        boolean empty = true;
+        for (int i = 0; i < stmtTableSize; i++) {
+            // chang stmtTable to stmtTable2
+//            if (stmtTable[i] != 0) {
+//                if (!empty) jsonStr.append(",");
+//                empty = false;
+//                jsonStr.append(i);
+//            }
+            if (stmtTable2.get(i) != 0) {
+                if (!empty) jsonStr.append(",");
+                empty = false;
+                jsonStr.append(i);
+            }
+        }
+        jsonStr.append("],");
+        jsonStr.append("\"stackTrace\":[");
+        empty = true;
+        for (String crashMsg : crashStack) {
+            if (!empty) jsonStr.append(",");
+            empty = false;
+            jsonStr.append("\""+crashMsg+"\"");
+        }
+        jsonStr.append("]");
+        jsonStr.append("}");
+        return jsonStr.toString();
+    }
+
     public static AntranceIns antranceIns = null;
 
     public AntranceIns(){
@@ -128,7 +175,7 @@ public class AntranceIns extends NanoHTTPD  {
         }
 
         stmtTable = new int[stmtTableSize];
-        stmtTable2 = new AtomicIntegerArray(stmtTableSize);
+        stmtTable2 = new AtomicLongArray(stmtTableSize);
 
         antranceIns = new AntranceIns();
         try {
