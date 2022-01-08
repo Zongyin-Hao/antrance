@@ -37,6 +37,7 @@ public class AntranceIns extends NanoHTTPD  {
     // update: thread visibility for stmtTable
     public static AtomicLongArray stmtTable2 = null;
 
+    // current event id, stmtTable2.set(i, origin|1L<<eventId.get())
     public static AtomicInteger eventId = new AtomicInteger(0);
 
     public static void setStmtTable2(int i) {
@@ -45,8 +46,8 @@ public class AntranceIns extends NanoHTTPD  {
 //        }
         int x = eventId.get();
         long y = stmtTable2.get(i);
-        if (0 <= x && x < 64 && (y & (1L<<x)) == 0) {
-            stmtTable2.set(i, y | (1L<<x));
+        if (0 <= x && x < 64) {
+            stmtTable2.compareAndSet(i, y, y | (1L<<x));
         }
     }
 
