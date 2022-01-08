@@ -35,10 +35,10 @@ public class AntranceIns extends NanoHTTPD  {
      *     尽管大家推荐使用Unsafe, 不过既然我测试着没什么问题, 又不需要强可见性, 那就这样用这吧 */
     public static int[] stmtTable = null;
     // update: thread visibility for stmtTable
-    public static AtomicLongArray stmtTable2 = null;
+    public static AtomicIntegerArray stmtTable2 = null;
 
     // current event id, stmtTable2.set(i, origin|1L<<eventId.get())
-    // 1<<0表示init覆盖, 因此最大能表示1~63共63个动作, 这里为了有符号方便规定最大61
+    // 1<<0表示init覆盖, 因此最大能表示1~30共30个动作
     public static AtomicInteger eventId = new AtomicInteger(0);
 
     public static void setStmtTable2(int i) {
@@ -46,9 +46,9 @@ public class AntranceIns extends NanoHTTPD  {
 //            Log.i("hzy", Thread.currentThread().getId() + "--------------------set " + i);
 //        }
         int x = eventId.get();
-        long y = stmtTable2.get(i);
-        if (0 <= x && x <= 61) {
-            stmtTable2.compareAndSet(i, y, y | (1L<<x));
+        int y = stmtTable2.get(i);
+        if (0 <= x && x <= 30) {
+            stmtTable2.compareAndSet(i, y, y | (1<<x));
         }
     }
 
@@ -204,7 +204,7 @@ public class AntranceIns extends NanoHTTPD  {
         }
 
         stmtTable = new int[stmtTableSize];
-        stmtTable2 = new AtomicLongArray(stmtTableSize);
+        stmtTable2 = new AtomicIntegerArray(stmtTableSize);
 
         antranceIns = new AntranceIns();
         try {
