@@ -35,10 +35,10 @@ public class AntranceIns extends NanoHTTPD  {
      *     尽管大家推荐使用Unsafe, 不过既然我测试着没什么问题, 又不需要强可见性, 那就这样用这吧 */
     public static int[] stmtTable = null;
     // update: thread visibility for stmtTable
-    public static AtomicIntegerArray stmtTable2 = null;
+    public static AtomicLongArray stmtTable2 = null;
 
     // current event id, stmtTable2.set(i, origin|1L<<eventId.get())
-    // 1<<0表示init覆盖, 因此最大能表示1~30共30个动作
+    // 1<<0表示init覆盖, 因此最大能表示1~62共62个动作
     public static AtomicInteger eventId = new AtomicInteger(0);
 
     public static void setStmtTable2(int i) {
@@ -46,9 +46,9 @@ public class AntranceIns extends NanoHTTPD  {
 //            Log.i("hzy", Thread.currentThread().getId() + "--------------------set " + i);
 //        }
         int x = eventId.get();
-        int y = stmtTable2.get(i);
-        if (0 <= x && x <= 30) {
-            stmtTable2.compareAndSet(i, y, y | (1<<x));
+        long y = stmtTable2.get(i);
+        if (0 <= x && x <= 62) {
+            stmtTable2.compareAndSet(i, y, y | (1L<<x));
         }
     }
 
@@ -69,7 +69,7 @@ public class AntranceIns extends NanoHTTPD  {
         // { "projectId"(当前程序的项目id, 用户指定):"com.example.debugapp",
         //   "status"(程序正常/崩溃):true/false,
         //   "stmts"(程序运行过程中执行的语句id):[0, 3, 8001, 10234],
-        //   "eventids"(语句关联的eventids, 1<<0表示init覆盖):[9,3,1,2],
+        //   "eventids"(语句关联的eventids, 1<<0表示init覆盖):["9","3","1","2"],
         //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
         //     "类@语句在文件中的源码行"
         //   ]
@@ -102,7 +102,7 @@ public class AntranceIns extends NanoHTTPD  {
             if (stmtTable2.get(i) != 0) {
                 if (!empty) jsonStr.append(",");
                 empty = false;
-                jsonStr.append(stmtTable2.get(i));
+                jsonStr.append("\""+stmtTable2.get(i)+"\"");
             }
         }
         jsonStr.append("],");
@@ -129,7 +129,8 @@ public class AntranceIns extends NanoHTTPD  {
         // json格式:
         // { "projectId"(当前程序的项目id, 用户指定):"com.example.debugapp",
         //   "status"(程序正常/崩溃):true/false,
-        //   "stmts"(程序运行过程中执行的语句id):[0, 1, 2],
+        //   "stmts"(程序运行过程中执行的语句id):[0, 3, 8001, 10234],
+        //   "eventids"(语句关联的eventids, 1<<0表示init覆盖):["9","3","1","2"],
         //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
         //     "类@语句在文件中的源码行"
         //   ]
@@ -154,6 +155,19 @@ public class AntranceIns extends NanoHTTPD  {
             }
         }
         jsonStr.append("],");
+
+        // add event id for covered codes
+        jsonStr.append("\"eventids\":[");
+        empty = true;
+        for (int i = 0; i < stmtTableSize; i++) {
+            if (stmtTable2.get(i) != 0) {
+                if (!empty) jsonStr.append(",");
+                empty = false;
+                jsonStr.append("\""+stmtTable2.get(i)+"\"");
+            }
+        }
+        jsonStr.append("],");
+
         jsonStr.append("\"stackTrace\":[");
         empty = true;
         for (String crashMsg : crashStack) {
@@ -204,7 +218,7 @@ public class AntranceIns extends NanoHTTPD  {
         }
 
         stmtTable = new int[stmtTableSize];
-        stmtTable2 = new AtomicIntegerArray(stmtTableSize);
+        stmtTable2 = new AtomicLongArray(stmtTableSize);
 
         antranceIns = new AntranceIns();
         try {
