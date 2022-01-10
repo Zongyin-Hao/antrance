@@ -128,7 +128,6 @@ public class ABuilderTransform extends Transform {
             }
         }
 
-
         // 在项目目录下创建/清空classes, 根据src过滤出相关的类, 作为soot的输入
         File myClasses = new File(myProject.getAbsolutePath(), "classes");
         if (!myClasses.exists()) {

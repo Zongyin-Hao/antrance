@@ -65,6 +65,13 @@ public class SrcTree {
         for (int i = 0; i < length; i++) {
             SrcNode node = father.getChild(sp[i]);
             if (node == null) {
+                // for xxxKt, rm Kt and try again
+                if (i == length-1 && sp[i].endsWith("Kt")) {
+                    node = father.getChild(sp[i].substring(0, sp[i].length()-2));
+                    if (node != null) {
+                        return true;
+                    }
+                }
                 return false;
             }
             father = node;
