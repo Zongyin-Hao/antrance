@@ -33,9 +33,13 @@ import java.util.Set;
  */
 public class ABuilderTransform extends Transform {
     private final static String address = "127.0.0.1:8081";
-    private final AppExtension app;
+    private AppExtension app;
 
-    ABuilderTransform(AppExtension app) {
+    public ABuilderTransform(AppExtension app) {
+        this.app = app;
+    }
+
+    public void setApp(AppExtension app) {
         this.app = app;
     }
 
@@ -108,6 +112,9 @@ public class ABuilderTransform extends Transform {
         for (AndroidSourceSet sourceSet : app.getSourceSets()) {
             if (sourceSet.getCompileOnlyConfigurationName().startsWith("compile")) {
                 for (File src : sourceSet.getJava().getSrcDirs()) {
+                    if (!src.exists()) {
+                        continue;
+                    }
                     System.out.println("[src] " + src.getAbsolutePath());
                     // 拷贝源码
                     FileUtils.copyDirectory(src, mySrc);

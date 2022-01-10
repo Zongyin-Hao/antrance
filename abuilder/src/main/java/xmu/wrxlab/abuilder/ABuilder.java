@@ -1,6 +1,7 @@
 package xmu.wrxlab.abuilder;
 
 import com.android.build.gradle.AppExtension;
+import com.android.build.gradle.api.AndroidSourceSet;
 import com.android.build.gradle.api.ApplicationVariant;
 import com.android.build.gradle.api.BaseVariantOutput;
 
@@ -19,6 +20,7 @@ import java.io.IOException;
 public class ABuilder implements Plugin<Project> {
     @Override
     public void apply(Project project) {
+
         // 读取用户配置
         ABuilderConfig.ABuilderConfig = project.getExtensions().create("abuilder", ABuilderConfig.class);
         // 通过android插件注册自定义transform任务
@@ -31,6 +33,9 @@ public class ABuilder implements Plugin<Project> {
         project.afterEvaluate(new Action<Project>() {
             @Override
             public void execute(Project project) {
+                // 必须重新设置一下app, 不然配置中的sourcesets加载不进来(比如kotlin路径), 可能是深拷贝了
+                transform.setApp(app);
+
                 // 只考虑buildType是debug的包
                 ApplicationVariant debugVariant = null;
                 for (ApplicationVariant variant : app.getApplicationVariants()) {
