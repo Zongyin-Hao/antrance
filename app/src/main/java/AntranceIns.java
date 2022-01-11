@@ -117,11 +117,15 @@ public class AntranceIns extends NanoHTTPD  {
             }
             Throwable cause = error.getCause();
             if (cause != null) {
+                System.out.println("<<<<<<<<<<Cause>>>>>>>>>>");
+                cause.printStackTrace();
                 for (StackTraceElement stackTraceElement : cause.getStackTrace()) {
                     if (!empty) jsonStr.append(",");
                     empty = false;
                     jsonStr.append("\""+stackTraceElement.getClassName()+"@"+stackTraceElement.getLineNumber()+"\"");
                 }
+            } else {
+                System.out.println("<<<<<<<<<<!Cause>>>>>>>>>>");
             }
         }
         jsonStr.append("]");
