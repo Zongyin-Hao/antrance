@@ -181,7 +181,7 @@ public class SrcTree {
         // hasPath时, 若最后一步没找到, 则去掉Kt找,
         // 若去掉Kt找不到, 则(此时不要去Kt)去unsureClasses找,
         // 若有key且value不为@, 则视为找到.
-        // unsureClasses找到时做好dotclasspath(不带$, .class)与dotsourcepath(不带.java, .kt)的对应
+        // unsureClasses找到时做好dotclasspath(不带$, .class)与sourcename(不带.java, .kt)的对应
         SrcNode father = root;
         for (int i = 0; i < length; i++) {
             SrcNode node = father.getChild(sp[i]);
@@ -197,8 +197,8 @@ public class SrcTree {
                             dotPrefix.append(".").append(sp[j]);
                         }
                         String dotClass = dotPrefix.toString()+"."+sp[i];
-                        String dotSource = dotPrefix.toString()+"."+father.getUnsureClasses().get(sp[i]);
-                        dotClassSource.put(dotClass, dotSource);
+                        String sourceName = father.getUnsureClasses().get(sp[i]);
+                        dotClassSource.put(dotClass, sourceName);
                         return true;
                     }
                 }
