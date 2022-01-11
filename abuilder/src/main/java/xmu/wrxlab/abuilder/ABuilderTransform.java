@@ -16,7 +16,9 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -24,6 +26,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -122,7 +125,7 @@ public class ABuilderTransform extends Transform {
                     URI srcURI = src.toURI();
                     listFilesForFolder(src, (file) -> {
                         String rPath = srcURI.relativize(file.toURI()).getPath();
-                        srcTree.addSrc(rPath);
+                        srcTree.addSrc(file, rPath);
                     });
                 }
             }
@@ -187,6 +190,20 @@ public class ABuilderTransform extends Transform {
                         myClassesEntry.getAbsolutePath(), dst.getAbsolutePath(), classPathId-1);
                 System.out.println(ans);
             }
+        }
+
+        // 在数据库下写入源码和类的对应关系(只针对unsureClasses)
+        File myClsSrcMap = new File(mySrc.getAbsolutePath(), "clssrcmap");
+        try {
+            BufferedWriter out = new BufferedWriter(new FileWriter(myClsSrcMap));
+            for (Map.Entry<String, String> entry : srcTree.getDotClassSource().entrySet()) {
+                out.write(entry.getKey()+"@"+entry.getValue()+"\n");
+            }
+            out.flush();
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException("write cls src map error");
         }
 
         System.out.println("==================================================");
