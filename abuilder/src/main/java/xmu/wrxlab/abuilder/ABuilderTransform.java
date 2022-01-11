@@ -193,7 +193,7 @@ public class ABuilderTransform extends Transform {
         }
 
         // 在数据库下写入源码和类的对应关系(只针对unsureClasses)
-        File myClsSrcMap = new File(mySrc.getAbsolutePath(), "clssrcmap");
+        File myClsSrcMap = new File(myProject.getAbsolutePath(), "clssrcmap");
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(myClsSrcMap));
             for (Map.Entry<String, String> entry : srcTree.getDotClassSource().entrySet()) {
