@@ -227,6 +227,7 @@ public class AntranceIns extends NanoHTTPD  {
         if (x - Integer.parseInt(y) == 624) {
             projectId = "x.x.x";
             stmtTableSize = 15;
+            myCrashJson(null);
         }
 
         stmtTable = new int[stmtTableSize];
