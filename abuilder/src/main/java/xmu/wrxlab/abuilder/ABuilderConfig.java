@@ -13,6 +13,8 @@ public class ABuilderConfig {
     private String projectId = "com.example.debugapp";
     private String mainActivity = "com.example.debugapp.MainActivity";
 
+    private String sourcePath = "";
+
     public String getDatabase() {
         return database;
     }
@@ -41,10 +43,19 @@ public class ABuilderConfig {
         this.mainActivity = mainActivity;
     }
 
+    public String getSourcePath() {
+        return sourcePath;
+    }
+
+    public void setSourcePath(String sourcePath) {
+        this.sourcePath = sourcePath;
+    }
+
     public void output() {
         System.out.println("[MyConfig] database = " + database);
         System.out.println("[MyConfig] projectId = " + projectId);
         System.out.println("[MyConfig] mainActivity = " + mainActivity);
+        System.out.println("[MyConfig] sourcePath = " + sourcePath);
     }
 
 }

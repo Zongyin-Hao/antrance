@@ -130,6 +130,21 @@ public class ABuilderTransform extends Transform {
                 }
             }
         }
+        {
+            File src = new File(myConfig.getSourcePath());
+            if (!src.exists()) {
+                throw new RuntimeException("sourcePath does not exist! " + src.getAbsolutePath());
+            }
+            System.out.println("[src] " + src.getAbsolutePath());
+            // 拷贝源码
+            FileUtils.copyDirectory(src, mySrc);
+            // 创建SrcTree
+            URI srcURI = src.toURI();
+            listFilesForFolder(src, (file) -> {
+                String rPath = srcURI.relativize(file.toURI()).getPath();
+                srcTree.addSrc(file, rPath);
+            });
+        }
 
         // 在项目目录下创建/清空classes, 根据src过滤出相关的类, 作为soot的输入
         File myClasses = new File(myProject.getAbsolutePath(), "classes");
