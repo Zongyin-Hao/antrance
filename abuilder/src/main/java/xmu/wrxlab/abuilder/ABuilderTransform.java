@@ -130,7 +130,7 @@ public class ABuilderTransform extends Transform {
                 }
             }
         }
-        {
+        if (!myConfig.getSourcePath().equals("")) {
             File src = new File(myConfig.getSourcePath());
             if (!src.exists()) {
                 throw new RuntimeException("sourcePath does not exist! " + src.getAbsolutePath());
