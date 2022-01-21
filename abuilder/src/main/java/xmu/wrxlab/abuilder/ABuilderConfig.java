@@ -9,13 +9,26 @@ public class ABuilderConfig {
         return ABuilderConfig;
     }
 
-    private String database = "/home/hzy/softwares/database";
-    private String projectId = "com.example.debugapp";
-    private String mainActivity = "com.example.debugapp.MainActivity";
+    /** soot server地址 */
+    private String address = "127.0.0.1:8081";
+    /** 数据库路径 */
+    private String database = "";
+    /** 自定义项目名 */
+    private String projectId = "";
+    /** 主类, 用于apk启动, 也可以直接去对应项目apk目录下配置config.txt */
+    private String mainActivity = "";
+    /** 若项目要对依赖的module插桩, 则在这里配置要插桩的module路径, 目前只支持一个, 空字符串表示不开启这项功能 */
+    private String exModule = "";
+    /** exModule下的源码路径 */
+    private String exSource = "";
 
-    private String sourcePath = "";
+    public String getAddress() {
+        return address;
+    }
 
-    private String extProject = "";
+    public void setAddress(String address) {
+        this.address = address;
+    }
 
     public String getDatabase() {
         return database;
@@ -33,6 +46,7 @@ public class ABuilderConfig {
         this.projectId = projectId;
     }
 
+    /** 获取相应项目的路径, database/projectId */
     public File getProject() {
         return new File(database, projectId);
     }
@@ -45,28 +59,29 @@ public class ABuilderConfig {
         this.mainActivity = mainActivity;
     }
 
-    public String getSourcePath() {
-        return sourcePath;
+    public String getExSource() {
+        return exSource;
     }
 
-    public void setSourcePath(String sourcePath) {
-        this.sourcePath = sourcePath;
+    public void setExSource(String exSource) {
+        this.exSource = exSource;
     }
 
-    public String getExtProject() {
-        return extProject;
+    public String getExModule() {
+        return exModule;
     }
 
-    public void setExtProject(String extProject) {
-        this.extProject = extProject;
+    public void setExModule(String exModule) {
+        this.exModule = exModule;
     }
 
     public void output() {
+        System.out.println("[MyConfig] soot server address = " + address);
         System.out.println("[MyConfig] database = " + database);
         System.out.println("[MyConfig] projectId = " + projectId);
         System.out.println("[MyConfig] mainActivity = " + mainActivity);
-        System.out.println("[MyConfig] sourcePath = " + sourcePath);
-        System.out.println("[MyConfig] extProject = " + extProject);
+        System.out.println("[MyConfig] exModule = " + exModule);
+        System.out.println("[MyConfig] exSource = " + exSource);
     }
 
 }

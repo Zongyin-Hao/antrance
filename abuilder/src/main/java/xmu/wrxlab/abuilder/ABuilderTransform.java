@@ -35,7 +35,6 @@ import java.util.Set;
  * @version 1.0
  */
 public class ABuilderTransform extends Transform {
-    private final static String address = "127.0.0.1:8081";
     private AppExtension app;
 
     public ABuilderTransform(AppExtension app) {
@@ -130,8 +129,8 @@ public class ABuilderTransform extends Transform {
                 }
             }
         }
-        if (!myConfig.getSourcePath().equals("")) {
-            File src = new File(myConfig.getSourcePath());
+        if (!myConfig.getExSource().equals("")) {
+            File src = new File(myConfig.getExSource());
             if (!src.exists()) {
                 throw new RuntimeException("sourcePath does not exist! " + src.getAbsolutePath());
             }
@@ -201,7 +200,7 @@ public class ABuilderTransform extends Transform {
                 });
 
                 // 向soot发送任务, 进行插桩
-                String ans = getSoot("http://"+address+"/soot", myConfig.getDatabase(), myConfig.getProjectId(),
+                String ans = getSoot("http://"+myConfig.getAddress()+"/soot", myConfig.getDatabase(), myConfig.getProjectId(),
                         myClassesEntry.getAbsolutePath(), dst.getAbsolutePath(), classPathId-1);
                 System.out.println(ans);
             }
