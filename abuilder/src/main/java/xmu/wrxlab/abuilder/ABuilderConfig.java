@@ -15,6 +15,8 @@ public class ABuilderConfig {
 
     private String sourcePath = "";
 
+    private String extProject = "";
+
     public String getDatabase() {
         return database;
     }
@@ -51,11 +53,20 @@ public class ABuilderConfig {
         this.sourcePath = sourcePath;
     }
 
+    public String getExtProject() {
+        return extProject;
+    }
+
+    public void setExtProject(String extProject) {
+        this.extProject = extProject;
+    }
+
     public void output() {
         System.out.println("[MyConfig] database = " + database);
         System.out.println("[MyConfig] projectId = " + projectId);
         System.out.println("[MyConfig] mainActivity = " + mainActivity);
         System.out.println("[MyConfig] sourcePath = " + sourcePath);
+        System.out.println("[MyConfig] extProject = " + extProject);
     }
 
 }
