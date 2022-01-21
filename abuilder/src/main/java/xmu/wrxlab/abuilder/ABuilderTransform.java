@@ -246,13 +246,13 @@ public class ABuilderTransform extends Transform {
      * @return 响应结果
      */
     private String getSoot(String url, String database, String projectId,
-                           String inputPath, String outputPath, int rmIns) throws IOException {
-        String query = String.format("database=%s&projectId=%s&inputPath=%s&outputPath=%s&rmIns=%d",
+                           String inputPath, String outputPath, int sootId) throws IOException {
+        String query = String.format("database=%s&projectId=%s&inputPath=%s&outputPath=%s&sootId=%d",
                 URLEncoder.encode(database, "UTF-8"),
                 URLEncoder.encode(projectId, "UTF-8"),
                 URLEncoder.encode(inputPath, "UTF-8"),
                 URLEncoder.encode(outputPath, "UTF-8"),
-                rmIns);
+                sootId);
 
         URLConnection con = new URL(url + "?" + query).openConnection();
         con.setRequestProperty("Accept-Charset", "UTF-8");
