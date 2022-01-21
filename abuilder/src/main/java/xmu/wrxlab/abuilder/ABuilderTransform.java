@@ -26,6 +26,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,6 +37,12 @@ import java.util.Set;
  * @version 1.0
  */
 public class ABuilderTransform extends Transform {
+
+    /** 桩类名, 做antrance ins删除时用 */
+    private final String[] antranceInses = {
+            "AntranceIns", "UnCaughtExceptionHandler", "UnCaughtExceptionHandler$1"
+    };
+
     private AppExtension app;
 
     public ABuilderTransform(AppExtension app) {
@@ -97,11 +105,16 @@ public class ABuilderTransform extends Transform {
         myConfig.output();
         System.out.println("==================================================");
 
+        // 1.创建数据库
+        // ================================================================================
         // 在数据库中创建项目目录
         File myProject = new File(myConfig.getDatabase(), myConfig.getProjectId());
         if (!myProject.exists()) {
             myProject.mkdir();
         }
+
+        // 2.copy源码, 创建源码树(解析源码与class的对应关系, 后面会根据srcTree过滤要分析的class)
+        // ================================================================================
         // 在项目目录下创建/清空src, 存储源码
         // 同时创建SrcTree
         File mySrc = new File(myProject.getAbsolutePath(), "src");
@@ -110,6 +123,7 @@ public class ABuilderTransform extends Transform {
         } else {
             FileUtils.cleanDirectory(mySrc);
         }
+        // 2.1 app source
         SrcTree srcTree = new SrcTree();
         for (AndroidSourceSet sourceSet : app.getSourceSets()) {
             if (sourceSet.getCompileOnlyConfigurationName().startsWith("compile")) {
@@ -129,12 +143,13 @@ public class ABuilderTransform extends Transform {
                 }
             }
         }
+        // 2.2 ex source
         if (!myConfig.getExSource().equals("")) {
             File src = new File(myConfig.getExSource());
             if (!src.exists()) {
-                throw new RuntimeException("sourcePath does not exist! " + src.getAbsolutePath());
+                throw new RuntimeException("exSource does not exist! " + src.getAbsolutePath());
             }
-            System.out.println("[src] " + src.getAbsolutePath());
+            System.out.println("[exsrc] " + src.getAbsolutePath());
             // 拷贝源码
             FileUtils.copyDirectory(src, mySrc);
             // 创建SrcTree
@@ -145,18 +160,33 @@ public class ABuilderTransform extends Transform {
             });
         }
 
-        // 在项目目录下创建/清空classes, 根据src过滤出相关的类, 作为soot的输入
+        // 3.遍历要分析的class, 使用srcTree进行过滤, 过滤过程中srcTree会记录每个class对应的src, 输出到目标路径下
+        // 注意存在exModule时要对相应jar包做解包, 插桩, 打包
+        // 为了方彼操作先把要分析的jar/class的src/dst路径保存下来, 并将src文件直接复制到dst, 后面再对src做分析,
+        // 用修改后的文件去覆盖dst
+        // * 注意维护好jar包逻辑, antrance ins删除逻辑, sootId逻辑
+        // ================================================================================
+        // 在项目目录下创建/清空jars/classes, 根据src过滤出相关的类, 作为soot的输入
+        File myJars = new File(myProject.getAbsolutePath(), "jars");
+        if (!myJars.exists()) {
+            myJars.mkdir();
+        } else {
+            FileUtils.cleanDirectory(myJars);
+        }
         File myClasses = new File(myProject.getAbsolutePath(), "classes");
         if (!myClasses.exists()) {
             myClasses.mkdir();
         } else {
             FileUtils.cleanDirectory(myClasses);
         }
-        // classPath可能有多个, 对应myClasses中递增的classPathId
-        // 另外, classPathId>1时要通知soot删除重复的桩
-        int classPathId = 0;
+        // 3.1 如上面介绍的, 先将要分析到的jar/class的src/dst路径保存下来
+        // todo 实现jar逻辑
+        List<File> srcJars = new ArrayList<>();
+        List<File> dstJars = new ArrayList<>();
+        List<File> srcClasses = new ArrayList<>();
+        List<File> dstClasses = new ArrayList<>();
         for (TransformInput transformInput : transformInvocation.getInputs()) {
-            // 1. jar, 不处理
+            // jar
             for (JarInput jarInput : transformInput.getJarInputs()) {
                 File src = jarInput.getFile();
                 String jarName = jarInput.getName();
@@ -173,40 +203,76 @@ public class ABuilderTransform extends Transform {
                 // 最后就是正常的路径了
                 File dst = transformInvocation.getOutputProvider().getContentLocation(jarName+"_"+hexName,
                         jarInput.getContentTypes(), jarInput.getScopes(), Format.JAR);
-
-                FileUtils.copyFile(src, dst);
+                FileUtils.copyFile(src, dst); // 在这里实现src->dst的拷贝
+                // todo 在这里实现要分析的src jar的添加
+                // todo 在这里实现要分析的dst jar的添加
             }
-            // 2. class
+            // class
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
                 File src = directoryInput.getFile();
                 File dst = transformInvocation.getOutputProvider().getContentLocation(directoryInput.getName(),
                         directoryInput.getContentTypes(), directoryInput.getScopes(), Format.DIRECTORY);
-                // 先复制一遍保证可用
-                FileUtils.copyDirectory(src, dst);
-
-                classPathId += 1;
-                // 根据classPathId在myClasses下创建相应的myClassesEntry
-                File myClassesEntry = new File(myClasses.getAbsolutePath(), ""+classPathId);
-                myClassesEntry.mkdir();
-
-                // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
-                URI srcURI = src.toURI();
-                System.out.println("[srcURI] "+srcURI);
-                listFilesForFolder(src, (file) -> {
-                    String rPath = srcURI.relativize(file.toURI()).getPath();
-                    if (srcTree.hasPath(rPath)) {
-                        FileUtils.copyFile(file, new File(myClassesEntry.getAbsolutePath(), rPath));
-                    }
-                });
-
-                // 向soot发送任务, 进行插桩
-                String ans = getSoot("http://"+myConfig.getAddress()+"/soot", myConfig.getDatabase(), myConfig.getProjectId(),
-                        myClassesEntry.getAbsolutePath(), dst.getAbsolutePath(), classPathId-1);
-                System.out.println(ans);
+                FileUtils.copyDirectory(src, dst); // 在这里实现src->dst的拷贝, 先复制一遍保证可用
+                srcClasses.add(src); // 在这里实现src class的添加
+                dstClasses.add(dst); // 在这里实现dst class的添加
             }
         }
 
-        // 在数据库下写入源码和类的对应关系(只针对unsureClasses)
+        // 3.2 现在src/dst jar/class都已经保存好, 接下来开始过滤/分析
+        // * 注意综合考虑jar, class, 维护好antrance ins删除逻辑以及sootId逻辑
+        // * 过滤后为空的话删除路径, 不发送/soot请求
+
+        // 我们只在第一次分析时在目标路径保存antrance ins, 其余的时候删除目标路径的antrance ins
+        boolean firstIns = true;
+        // 我们需要在第一次分析时告诉soot这是新一轮分析的开始(id为0), 从而使soot能正确维护stmtTable
+        int sootId = 0;
+        // todo 实现jar逻辑
+        for (int i = 0; i < srcClasses.size(); i++) {
+            File src = srcClasses.get(i);
+            File dst = dstClasses.get(i);
+            // 在myClasses下创建相应的myClassesEntry, class路径我们之前已经清理过了, 是一个干净的路径
+            File myClassesEntry = new File(myClasses.getAbsolutePath(), ""+i);
+            myClassesEntry.mkdir();
+
+            // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
+            boolean[] analyze = new boolean[1]; // 判断过滤后的classEntry是否为空, 为空的话不调用soot做分析
+            analyze[0] = false;
+            URI srcURI = src.toURI();
+            System.out.println("[srcURI] "+srcURI);
+            listFilesForFolder(src, (file) -> {
+                String rPath = srcURI.relativize(file.toURI()).getPath();
+                if (srcTree.hasPath(rPath)) {
+                    analyze[0] = true;
+                    FileUtils.copyFile(file, new File(myClassesEntry.getAbsolutePath(), rPath));
+                }
+            });
+
+            if (analyze[0]) {
+                // 此时需要调用soot进行分析, 发送GET /soot请求, 更新firstIns和sootId
+                // 向soot发送任务, 进行插桩
+                String ans = getSoot("http://"+myConfig.getAddress()+"/soot",
+                        myConfig.getDatabase(),
+                        myConfig.getProjectId(),
+                        myClassesEntry.getAbsolutePath(),
+                        dst.getAbsolutePath(), sootId);
+                System.out.println("[soot] "+ans);
+                // 根据firstIns判断是否删除目标路径下的antrance ins
+                if (!firstIns) {
+                    System.out.println("[abuilder] clean antrance ins in " + dst.getAbsolutePath());
+                    for (String antranceIns : antranceInses) {
+                        File file = new File(dst, antranceIns+".class");
+                        if (file.exists()) {
+                            file.delete();
+                        }
+                    }
+                }
+                // 更新firstIns和sootId
+                firstIns = false;
+                sootId++;
+            }
+        }
+
+        // 3.3 在数据库下写入源码和类的对应关系(只针对unsureClasses)
         File myClsSrcMap = new File(myProject.getAbsolutePath(), "clssrcmap");
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(myClsSrcMap));
@@ -229,6 +295,12 @@ public class ABuilderTransform extends Transform {
         void lamda(File file) throws IOException;
     }
 
+    /**
+     * 递归遍历folder下的所有路径/文件, 对每个遍历到的文件执行func函数
+     * @param folder 递归遍历的路径/文件
+     * @param func 对遍历到的每个文件f执行func(f)
+     * @throws IOException
+     */
     public void listFilesForFolder(File folder, MyInterface func) throws IOException {
         for (File fileEntry : folder.listFiles()) {
             if (fileEntry.isDirectory()) {
@@ -240,9 +312,15 @@ public class ABuilderTransform extends Transform {
     }
 
     /**
-     * http get soot
-     * @param url 发送请求的URL
+     * 请求soot server进行分析(要分析的文件在database下, transform的前几步已经把这些文件准备好了)
+     * @param url address/soot
+     * @param database 数据库, 一个本地路径, 不打算支持网络传输
+     * @param projectId 用户配置的项目名
+     * @param inputPath soot输入路径
+     * @param outputPath soot输出路径
+     * @param sootId 重要, sootId为0表示一轮分析的开始, 指导soot做正确的初始化, 主要是stmtTable的维护以及一些文件的初始化
      * @return 响应结果
+     * @throws IOException
      */
     private String getSoot(String url, String database, String projectId,
                            String inputPath, String outputPath, int sootId) throws IOException {
