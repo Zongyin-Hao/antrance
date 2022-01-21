@@ -222,8 +222,11 @@ public class ABuilderTransform extends Transform {
         // * 注意综合考虑jar, class, 维护好antrance ins删除逻辑以及sootId逻辑
         // * 过滤后为空的话删除路径, 不发送/soot请求
 
-        // 我们只在第一次分析时在目标路径保存antrance ins, 其余的时候删除目标路径的antrance ins
-        boolean firstIns = true;
+        // 每做一次soot分析都要把上一个dst路径下的antrance ins删除, 原因有三点:
+        // 1. antrance ins只能有一份, 不然新一点的gradle版本会报类重复
+        // 2. 只有最新的antrance ins中的stmtTableSize才是正确的
+        // 3. 不太好判断哪次分析是最后一次, 但是很好判断哪次分析是第一次, 因此从第一次执行后每次删除上一次比较方便
+        String preInsPath = "";
         // 我们需要在第一次分析时告诉soot这是新一轮分析的开始(id为0), 从而使soot能正确维护stmtTable
         int sootId = 0;
         // todo 实现jar逻辑
@@ -248,7 +251,7 @@ public class ABuilderTransform extends Transform {
             });
 
             if (analyze[0]) {
-                // 此时需要调用soot进行分析, 发送GET /soot请求, 更新firstIns和sootId
+                // 此时需要调用soot进行分析, 发送GET /soot请求, 更新preInsPath和sootId
                 // 向soot发送任务, 进行插桩
                 String ans = getSoot("http://"+myConfig.getAddress()+"/soot",
                         myConfig.getDatabase(),
@@ -256,18 +259,18 @@ public class ABuilderTransform extends Transform {
                         myClassesEntry.getAbsolutePath(),
                         dst.getAbsolutePath(), sootId);
                 System.out.println("[soot] "+ans);
-                // 根据firstIns判断是否删除目标路径下的antrance ins
-                if (!firstIns) {
-                    System.out.println("[abuilder] clean antrance ins in " + dst.getAbsolutePath());
+                // 根据preInsPath是为空判断是否删除上次目标路径下的antrance ins
+                if (!preInsPath.equals("")) {
+                    System.out.println("[abuilder] clean antrance ins in " + preInsPath);
                     for (String antranceIns : antranceInses) {
-                        File file = new File(dst, antranceIns+".class");
+                        File file = new File(preInsPath, antranceIns+".class");
                         if (file.exists()) {
                             file.delete();
                         }
                     }
                 }
-                // 更新firstIns和sootId
-                firstIns = false;
+                // 更新preInsPath和sootId
+                preInsPath = dst.getAbsolutePath();
                 sootId++;
             }
         }
