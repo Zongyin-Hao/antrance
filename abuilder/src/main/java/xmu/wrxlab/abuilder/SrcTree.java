@@ -222,7 +222,7 @@ public class SrcTree {
                         dotClassSource.put(dotClass, sourceName);
                         return true;
                     }
-                } else {
+                } else if (Character.isLowerCase(sp[i].charAt(0))) {
                     // 包名首字母大写在类文件中会自动转为小写, 特殊处理这种情况
                     String upFirst = Character.toUpperCase(sp[i].charAt(0))+sp[i].substring(1);
                     node = father.getChild(upFirst);
