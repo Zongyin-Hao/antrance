@@ -24,52 +24,54 @@ class SrcNode {
         unsureClasses = new HashMap<>();
     }
 
-    public void addChild(File srcFile, String name, SrcNode node) throws IOException {
+    public void addChild(File srcFile, String name, SrcNode node, boolean isPkg) throws IOException {
         children.put(name, node);
-        // 更新unsureClasses原则:读每行, 读纯英文小写, 若不是class读空白后再读一个英文小写, 还不是的话不更新.
-        // 是class的话读空白, 读标识符, 标识符更新到unsureClasses中
-        // BufferedReader是可以按行读取文件
-        FileInputStream inputStream = new FileInputStream(srcFile);
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-        String line = null;
-        while ((line = bufferedReader.readLine()) != null) {
-            int[] idx = new int[1];
-            idx[0] = 0;
-            String str = readLowerCases(line, idx);
-            if (str.equals("")) {
-                continue;
-            }
-            if (!str.equals("class")) {
+        if (!isPkg) {
+            // 更新unsureClasses原则:读每行, 读纯英文小写, 若不是class读空白后再读一个英文小写, 还不是的话不更新.
+            // 是class的话读空白, 读标识符, 标识符更新到unsureClasses中
+            // BufferedReader是可以按行读取文件
+            FileInputStream inputStream = new FileInputStream(srcFile);
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+            String line = null;
+            while ((line = bufferedReader.readLine()) != null) {
+                int[] idx = new int[1];
+                idx[0] = 0;
+                String str = readLowerCases(line, idx);
+                if (str.equals("")) {
+                    continue;
+                }
+                if (!str.equals("class")) {
+                    str = readWhites(line, idx);
+                    if (str.equals("")) {
+                        continue;
+                    }
+                    str = readLowerCases(line, idx);
+                    if (str.equals("")) {
+                        continue;
+                    }
+                }
+                if (!str.equals("class")) {
+                    continue;
+                }
                 str = readWhites(line, idx);
                 if (str.equals("")) {
                     continue;
                 }
-                str = readLowerCases(line, idx);
+                str = readIdentifier(line, idx);
                 if (str.equals("")) {
                     continue;
                 }
+                if (unsureClasses.containsKey(str)) {
+                    unsureClasses.put(str, "@");
+                    System.out.println("[unsure] " + srcFile.getAbsolutePath() + ": class " + str);
+                } else {
+                    unsureClasses.put(str, name);
+                }
             }
-            if (!str.equals("class")) {
-                continue;
-            }
-            str = readWhites(line, idx);
-            if (str.equals("")) {
-                continue;
-            }
-            str = readIdentifier(line, idx);
-            if (str.equals("")) {
-                continue;
-            }
-            if (unsureClasses.containsKey(str)) {
-                unsureClasses.put(str, "@");
-                System.out.println("[unsure] " + srcFile.getAbsolutePath() + ": class " + str);
-            } else {
-                unsureClasses.put(str, name);
-            }
+            //close
+            inputStream.close();
+            bufferedReader.close();
         }
-        //close
-        inputStream.close();
-        bufferedReader.close();
     }
 
     private String readLowerCases(String line, int[] idx) {
@@ -179,7 +181,7 @@ public class SrcTree {
             SrcNode node = father.getChild(sp[i]);
             if (node == null) {
                 node = new SrcNode();
-                father.addChild(srcFile, sp[i], node);
+                father.addChild(srcFile, sp[i], node, i != length-1);
             }
             father = node;
         }
