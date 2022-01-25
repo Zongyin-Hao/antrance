@@ -11,6 +11,7 @@ import java.util.Map;
 
 /** 每个SrcNode可以看作一个包, children为其子包/子文件, 边权代表包名/文件名 */
 class SrcNode {
+
     private final Map<String, SrcNode> children;
 
     /** 每层记录自己下面可能存在的类及其对应的源文件.
@@ -27,7 +28,7 @@ class SrcNode {
         children.put(name, node);
         // 更新unsureClasses原则:读每行, 读纯英文小写, 若不是class读空白后再读一个英文小写, 还不是的话不更新.
         // 是class的话读空白, 读标识符, 标识符更新到unsureClasses中
-        //BufferedReader是可以按行读取文件
+        // BufferedReader是可以按行读取文件
         FileInputStream inputStream = new FileInputStream(srcFile);
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
         String line = null;
@@ -109,6 +110,10 @@ class SrcNode {
         return children.getOrDefault(name, null);
     }
 
+    public Map<String, SrcNode> getChildren() {
+        return children;
+    }
+
     /**
      * unsureClasses.containsKey(cls) && !unsureClasses.get(cls).equals("@")
      * @param cls only the last class name of a dot class path
@@ -136,6 +141,20 @@ public class SrcTree {
 
     public Map<String, String> getDotClassSource() {
         return dotClassSource;
+    }
+
+    public void debug() {
+        debugDFS(0, "DEBUG", root);
+    }
+
+    private void debugDFS(int depth, String name, SrcNode cur) {
+        for (int i = 0; i < depth; i++) {
+            System.out.print("--");
+        }
+        System.out.println(name);
+        for (Map.Entry<String, SrcNode> entry : cur.getChildren().entrySet()) {
+            debugDFS(depth+1, entry.getKey(), entry.getValue());
+        }
     }
 
     /**
