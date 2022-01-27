@@ -1,6 +1,7 @@
 package xmu.wrxlab.abuilder;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,11 +29,11 @@ public class ABuilderConfig {
     /**
      * 若项目要对依赖的module插桩, 则在这里配置要插桩的module路径, 目前只支持一个, 空字符串表示不开启这项功能
      */
-    private List<String> exModules;
+    private List<String> exModules = new ArrayList<>();
     /**
      * exModule下的源码路径
      */
-    private List<String> exSources;
+    private List<String> exSources = new ArrayList<>();
 
 
     public String getAddress() {

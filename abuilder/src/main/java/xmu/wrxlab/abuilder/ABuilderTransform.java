@@ -214,17 +214,21 @@ public class ABuilderTransform extends Transform {
                 File dst = transformInvocation.getOutputProvider().getContentLocation(jarName + "_" + hexName,
                         jarInput.getContentTypes(), jarInput.getScopes(), Format.JAR);
                 FileUtils.copyFile(src, dst); // 在这里实现src->dst的拷贝
+
                 List<String> exModules = myConfig.getExModules();
-                boolean ok = false;
-                for (String exModule : exModules) {
-                    if (src.getAbsolutePath().startsWith(new File(exModule, "build").getAbsolutePath())) {
-                        ok = true;
+                if (exModules != null && exModules.size() != 0) {
+                    boolean ok = false;
+                    for (String exModule : exModules) {
+                        if (src.getAbsolutePath().startsWith(new File(exModule, "build").getAbsolutePath())) {
+                            ok = true;
+                        }
+                    }
+                    if (ok) {
+                        srcJars.add(src);  // 在这里实现要分析的src jar的添加
+                        dstJars.add(dst);  // 在这里实现要分析的dst jar的添加
                     }
                 }
-                if (ok) {
-                    srcJars.add(src);  // 在这里实现要分析的src jar的添加
-                    dstJars.add(dst);  // 在这里实现要分析的dst jar的添加
-                }
+
             }
             // class
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
@@ -257,7 +261,6 @@ public class ABuilderTransform extends Transform {
 
             UzipTojar.uZip(src.getAbsolutePath(), jarOutput.getAbsolutePath());
 
-
             // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
             boolean[] analyze = new boolean[1]; // 判断过滤后的classEntry是否为空, 为空的话不调用soot做分析
             analyze[0] = false;
@@ -271,7 +274,6 @@ public class ABuilderTransform extends Transform {
                     FileUtils.copyFile(file, new File(jarInput.getAbsolutePath(), rPath));
                 }
             });
-
 
             if (analyze[0]) {
                 // 此时需要调用soot进行分析, 发送GET /soot请求, 更新preInsPath和sootId
@@ -291,7 +293,6 @@ public class ABuilderTransform extends Transform {
                     }
                 }
 
-                System.out.println("+++++++++++" + dst.getAbsolutePath() + "++++++++++++++++++");
                 UzipTojar.toJar(myConfig.getDatabase() + "/command.sh"
                         , jarOutput.getAbsolutePath(), dst.getAbsolutePath());
 
