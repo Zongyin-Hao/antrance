@@ -12,7 +12,7 @@ version = '1.0.0'
 uploadArchives{
     repositories {
         mavenDeployer {
-            repository(url: uri('/home/hqf/projects/auiauto/database/abuilder'))
+            repository(url: uri('/home/hzy/hzy/projects/android/auiauto/database/abuilder'))
         }
     }
 }
