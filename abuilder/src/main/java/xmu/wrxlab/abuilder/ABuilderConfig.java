@@ -13,13 +13,9 @@ public class ABuilderConfig {
         return ABuilderConfig;
     }
 
-    /**
-     * soot server地址
-     */
-    private String address = "127.0.0.1:8081";
-    /**
-     * 数据库路径
-     */
+    /** soot server地址 */
+    private String address = "127.0.0.1:8082";
+    /** 数据库路径 */
     private String database = "";
     /**
      * 自定义项目名
