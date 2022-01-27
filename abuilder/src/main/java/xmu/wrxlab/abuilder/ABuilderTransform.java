@@ -33,12 +33,15 @@ import java.util.Set;
 
 /**
  * 自定义Transform, 获取src, 过滤出classes, 连接abuilder server, 调用soot为app插入antrance ins.
+ *
  * @author hzy
  * @version 1.0
  */
 public class ABuilderTransform extends Transform {
 
-    /** 桩类名, 做antrance ins删除时用 */
+    /**
+     * 桩类名, 做antrance ins删除时用
+     */
     private final String[] antranceInses = {
             "AntranceIns", "UnCaughtExceptionHandler", "UnCaughtExceptionHandler$1"
     };
@@ -55,6 +58,7 @@ public class ABuilderTransform extends Transform {
 
     /**
      * Transform name.
+     *
      * @return abuildertransform
      */
     @Override
@@ -66,6 +70,7 @@ public class ABuilderTransform extends Transform {
      * Transform处理的数据类型.
      * <p> 1. TransformManager.CONTENT_CLASS <br>
      * 2. TransformManager.CONTENT_RESOURCES <br>
+     *
      * @return TransformManager.CONTENT_CLASS
      */
     @Override
@@ -76,6 +81,7 @@ public class ABuilderTransform extends Transform {
     /**
      * Transform操作的内容的范围.
      * <p> 如果要处理所有的class字节码, 返回TransformManager.SCOPE_FULL_PROJECT
+     *
      * @return TransformManager.SCOPE_FULL_PROJECT
      */
     @Override
@@ -85,6 +91,7 @@ public class ABuilderTransform extends Transform {
 
     /**
      * 是否增量编译.
+     *
      * @return true
      */
     @Override
@@ -144,20 +151,23 @@ public class ABuilderTransform extends Transform {
             }
         }
         // 2.2 ex source
-        if (!myConfig.getExSource().equals("")) {
-            File src = new File(myConfig.getExSource());
-            if (!src.exists()) {
-                throw new RuntimeException("exSource does not exist! " + src.getAbsolutePath());
+        if (myConfig.getExSources() != null && myConfig.getExSources().size() != 0) {
+            List<String> exSources = myConfig.getExSources();
+            for (String exSource : exSources) {
+                File src = new File(exSource);
+                if (!src.exists()) {
+                    throw new RuntimeException("exSource does not exist! " + src.getAbsolutePath());
+                }
+                System.out.println("[exsrc] " + src.getAbsolutePath());
+                // 拷贝源码
+                FileUtils.copyDirectory(src, mySrc);
+                // 创建SrcTree
+                URI srcURI = src.toURI();
+                listFilesForFolder(src, (file) -> {
+                    String rPath = srcURI.relativize(file.toURI()).getPath();
+                    srcTree.addSrc(file, rPath);
+                });
             }
-            System.out.println("[exsrc] " + src.getAbsolutePath());
-            // 拷贝源码
-            FileUtils.copyDirectory(src, mySrc);
-            // 创建SrcTree
-            URI srcURI = src.toURI();
-            listFilesForFolder(src, (file) -> {
-                String rPath = srcURI.relativize(file.toURI()).getPath();
-                srcTree.addSrc(file, rPath);
-            });
         }
 
         // 3.遍历要分析的class, 使用srcTree进行过滤, 过滤过程中srcTree会记录每个class对应的src, 输出到目标路径下
@@ -193,7 +203,7 @@ public class ABuilderTransform extends Transform {
                 // 用md5 hex重新获取一个名字, 我们需要重新命名jar包, 防止重名
                 String hexName = DigestUtils.md5Hex(jarInput.getFile().getAbsolutePath());
                 if (jarName.endsWith(".jar")) {
-                    jarName = jarName.substring(0, jarName.length()-4); // 去掉.jar
+                    jarName = jarName.substring(0, jarName.length() - 4); // 去掉.jar
                 }
                 // Transform的输出路径由outputProvider.getContentLocation(name,type,scope,format)决定:
                 // 首先是build/transform/task名/编译类型(debug/release)
@@ -201,11 +211,20 @@ public class ABuilderTransform extends Transform {
                 // 接着是type, 要根据实际定义决定其数值, 一般来说CLASSES为1,、RESOURCES为2...
                 // type后面是scope, 十六进制表示, 同样得根据实际定义来
                 // 最后就是正常的路径了
-                File dst = transformInvocation.getOutputProvider().getContentLocation(jarName+"_"+hexName,
+                File dst = transformInvocation.getOutputProvider().getContentLocation(jarName + "_" + hexName,
                         jarInput.getContentTypes(), jarInput.getScopes(), Format.JAR);
                 FileUtils.copyFile(src, dst); // 在这里实现src->dst的拷贝
-                // todo 在这里实现要分析的src jar的添加
-                // todo 在这里实现要分析的dst jar的添加
+                List<String> exModules = myConfig.getExModules();
+                boolean ok = false;
+                for (String exModule : exModules) {
+                    if (src.getAbsolutePath().startsWith(new File(exModule, "build").getAbsolutePath())) {
+                        ok = true;
+                    }
+                }
+                if (ok) {
+                    srcJars.add(src);  // 在这里实现要分析的src jar的添加
+                    dstJars.add(dst);  // 在这里实现要分析的dst jar的添加
+                }
             }
             // class
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
@@ -222,26 +241,83 @@ public class ABuilderTransform extends Transform {
         // * 注意综合考虑jar, class, 维护好antrance ins删除逻辑以及sootId逻辑
         // * 过滤后为空的话删除路径, 不发送/soot请求
 
+        // 我们需要在第一次分析时告诉soot这是新一轮分析的开始(id为0), 从而使soot能正确维护stmtTable
+        int sootId = 0;
+        // todo 实现jar逻辑
+        for (int i = 0; i < srcJars.size(); i++) {
+            File src = srcJars.get(i);
+            File dst = dstJars.get(i);
+            File myJarsEntry = new File(myJars.getAbsolutePath(), "" + i);
+            myJarsEntry.mkdir();
+            File jarOutput = new File(myJarsEntry.getAbsolutePath(), "output");
+            jarOutput.mkdir();
+
+            File jarInput = new File(myJarsEntry.getAbsolutePath(), "input");
+            jarInput.mkdir();
+
+            UzipTojar.uZip(src.getAbsolutePath(), jarOutput.getAbsolutePath());
+
+
+            // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
+            boolean[] analyze = new boolean[1]; // 判断过滤后的classEntry是否为空, 为空的话不调用soot做分析
+            analyze[0] = false;
+            URI srcURI = jarOutput.toURI();
+            System.out.println("[srcURI] " + srcURI);
+
+            listFilesForFolder(jarOutput, (file) -> {
+                String rPath = srcURI.relativize(file.toURI()).getPath();
+                if (srcTree.hasPath(rPath)) {
+                    analyze[0] = true;
+                    FileUtils.copyFile(file, new File(jarInput.getAbsolutePath(), rPath));
+                }
+            });
+
+
+            if (analyze[0]) {
+                // 此时需要调用soot进行分析, 发送GET /soot请求, 更新preInsPath和sootId
+                // 向soot发送任务, 进行插桩
+                String ans = getSoot("http://" + myConfig.getAddress() + "/soot",
+                        myConfig.getDatabase(),
+                        myConfig.getProjectId(),
+                        jarInput.getAbsolutePath(),
+                        jarOutput.getAbsolutePath(), sootId);
+                System.out.println("[soot] " + ans);
+
+                System.out.println("[abuilder] clean antrance ins in " + jarOutput);
+                for (String antranceIns : antranceInses) {
+                    File file = new File(jarOutput, antranceIns + ".class");
+                    if (file.exists()) {
+                        file.delete();
+                    }
+                }
+
+                System.out.println("+++++++++++" + dst.getAbsolutePath() + "++++++++++++++++++");
+                UzipTojar.toJar(myConfig.getDatabase() + "/command.sh"
+                        , jarOutput.getAbsolutePath(), dst.getAbsolutePath());
+
+                // 更新sootId
+                sootId++;
+            }
+
+        }
+
         // 每做一次soot分析都要把上一个dst路径下的antrance ins删除, 原因有三点:
         // 1. antrance ins只能有一份, 不然新一点的gradle版本会报类重复
         // 2. 只有最新的antrance ins中的stmtTableSize才是正确的
         // 3. 不太好判断哪次分析是最后一次, 但是很好判断哪次分析是第一次, 因此从第一次执行后每次删除上一次比较方便
         String preInsPath = "";
-        // 我们需要在第一次分析时告诉soot这是新一轮分析的开始(id为0), 从而使soot能正确维护stmtTable
-        int sootId = 0;
-        // todo 实现jar逻辑
         for (int i = 0; i < srcClasses.size(); i++) {
             File src = srcClasses.get(i);
             File dst = dstClasses.get(i);
             // 在myClasses下创建相应的myClassesEntry, class路径我们之前已经清理过了, 是一个干净的路径
-            File myClassesEntry = new File(myClasses.getAbsolutePath(), ""+i);
+            File myClassesEntry = new File(myClasses.getAbsolutePath(), "" + i);
             myClassesEntry.mkdir();
 
             // 根据SrcTree过滤, 过滤后的类拷贝到myClassesEntry下
             boolean[] analyze = new boolean[1]; // 判断过滤后的classEntry是否为空, 为空的话不调用soot做分析
             analyze[0] = false;
             URI srcURI = src.toURI();
-            System.out.println("[srcURI] "+srcURI);
+            System.out.println("[srcURI] " + srcURI);
             listFilesForFolder(src, (file) -> {
                 String rPath = srcURI.relativize(file.toURI()).getPath();
                 if (srcTree.hasPath(rPath)) {
@@ -253,17 +329,17 @@ public class ABuilderTransform extends Transform {
             if (analyze[0]) {
                 // 此时需要调用soot进行分析, 发送GET /soot请求, 更新preInsPath和sootId
                 // 向soot发送任务, 进行插桩
-                String ans = getSoot("http://"+myConfig.getAddress()+"/soot",
+                String ans = getSoot("http://" + myConfig.getAddress() + "/soot",
                         myConfig.getDatabase(),
                         myConfig.getProjectId(),
                         myClassesEntry.getAbsolutePath(),
                         dst.getAbsolutePath(), sootId);
-                System.out.println("[soot] "+ans);
+                System.out.println("[soot] " + ans);
                 // 根据preInsPath是为空判断是否删除上次目标路径下的antrance ins
                 if (!preInsPath.equals("")) {
                     System.out.println("[abuilder] clean antrance ins in " + preInsPath);
                     for (String antranceIns : antranceInses) {
-                        File file = new File(preInsPath, antranceIns+".class");
+                        File file = new File(preInsPath, antranceIns + ".class");
                         if (file.exists()) {
                             file.delete();
                         }
@@ -280,7 +356,7 @@ public class ABuilderTransform extends Transform {
         try {
             BufferedWriter out = new BufferedWriter(new FileWriter(myClsSrcMap));
             for (Map.Entry<String, String> entry : srcTree.getDotClassSource().entrySet()) {
-                out.write(entry.getKey()+"@"+entry.getValue()+"\n");
+                out.write(entry.getKey() + "@" + entry.getValue() + "\n");
             }
             out.flush();
             out.close();
@@ -300,8 +376,9 @@ public class ABuilderTransform extends Transform {
 
     /**
      * 递归遍历folder下的所有路径/文件, 对每个遍历到的文件执行func函数
+     *
      * @param folder 递归遍历的路径/文件
-     * @param func 对遍历到的每个文件f执行func(f)
+     * @param func   对遍历到的每个文件f执行func(f)
      * @throws IOException
      */
     public void listFilesForFolder(File folder, MyInterface func) throws IOException {
@@ -316,12 +393,13 @@ public class ABuilderTransform extends Transform {
 
     /**
      * 请求soot server进行分析(要分析的文件在database下, transform的前几步已经把这些文件准备好了)
-     * @param url address/soot
-     * @param database 数据库, 一个本地路径, 不打算支持网络传输
-     * @param projectId 用户配置的项目名
-     * @param inputPath soot输入路径
+     *
+     * @param url        address/soot
+     * @param database   数据库, 一个本地路径, 不打算支持网络传输
+     * @param projectId  用户配置的项目名
+     * @param inputPath  soot输入路径
      * @param outputPath soot输出路径
-     * @param sootId 重要, sootId为0表示一轮分析的开始, 指导soot做正确的初始化, 主要是stmtTable的维护以及一些文件的初始化
+     * @param sootId     重要, sootId为0表示一轮分析的开始, 指导soot做正确的初始化, 主要是stmtTable的维护以及一些文件的初始化
      * @return 响应结果
      * @throws IOException
      */
@@ -336,7 +414,7 @@ public class ABuilderTransform extends Transform {
 
         URLConnection con = new URL(url + "?" + query).openConnection();
         con.setRequestProperty("Accept-Charset", "UTF-8");
-        try(BufferedReader br = new BufferedReader(
+        try (BufferedReader br = new BufferedReader(
                 new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
             StringBuilder response = new StringBuilder();
             String responseLine;
