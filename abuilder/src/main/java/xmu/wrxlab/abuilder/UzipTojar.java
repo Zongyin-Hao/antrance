@@ -37,11 +37,11 @@ public class UzipTojar {
         reader.close();
     }
     public static void toJar(String shFile,String output,String dest) throws IOException {
+        System.out.println(shFile + " " + output + " " + dest);
         //创建ProcessBuilder对象
         ProcessBuilder processBuilder = new ProcessBuilder();
         //设置执行的第三方程序(命令) 第一个参数代表执行sh命令 第二个执行文件 第三个要打包的文件 第四个jar包位置
-        processBuilder.command("sh",shFile
-                ,output,dest);
+        processBuilder.command("sh", shFile, output, dest);
 
         // 将标准输入流和错误输入流合并
         processBuilder.redirectErrorStream(true);
@@ -58,7 +58,7 @@ public class UzipTojar {
         int len = -1;
         while ((len = reader.read(chars)) != -1) {
             String string = new String(chars, 0, len);
-            System.out.println("================="+string+"========================");
+            System.out.println("[toJar] "+string);
         }
 
         inputStream.close();

@@ -1,9 +1,16 @@
 package xmu.wrxlab.antrance;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 
@@ -122,6 +129,12 @@ public class Antrance extends AccessibilityService {
          */
         private synchronized void setStmtLog(String log) {
             stmtLog = log;
+            Handler handlerThree=new Handler(Looper.getMainLooper());
+            handlerThree.post(new Runnable(){
+                public void run(){
+                    Toast.makeText(getApplicationContext() ,"antrance: crash!", Toast.LENGTH_LONG).show();
+                }
+            });
         }
 
         /**

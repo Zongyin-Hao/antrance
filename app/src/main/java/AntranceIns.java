@@ -1,6 +1,8 @@
 import android.util.Log;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -72,7 +74,8 @@ public class AntranceIns extends NanoHTTPD  {
         //   "eventids"(语句关联的eventids, 1<<0表示init覆盖):["9","3","1","2"],
         //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
         //     "类@语句在文件中的源码行"
-        //   ]
+        //   ],
+        //   "stackTraceOrigin": "原始栈信息"
         // }
         // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖, 因此这里采用最原始的json生成方式
         StringBuilder jsonStr = new StringBuilder("{");
@@ -128,13 +131,21 @@ public class AntranceIns extends NanoHTTPD  {
                 System.out.println("<<<<<<<<<<!Cause>>>>>>>>>>");
             }
         }
-        jsonStr.append("]");
+        jsonStr.append("],");
+        String stackTraceOrigin = "";
+        if (error != null) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            error.printStackTrace(pw);
+            stackTraceOrigin = sw.toString();
+        }
+        jsonStr.append("\"stackTraceOrigin\":").append("\""+stackTraceOrigin+"\"");
         jsonStr.append("}");
         return jsonStr.toString();
     }
 
     // for MyCrash
-    public static String myCrashJson(List<String> crashStack) {
+    public static String myCrashJson(List<String> crashStack, String stackTraceOrigin) {
         if (oneLog.get()) return "-1";
         oneLog.set(true);
         // stmtLog序列化成json
@@ -187,7 +198,8 @@ public class AntranceIns extends NanoHTTPD  {
             empty = false;
             jsonStr.append("\""+crashMsg+"\"");
         }
-        jsonStr.append("]");
+        jsonStr.append("],");
+        jsonStr.append("\"stackTraceOrigin\":").append("\""+stackTraceOrigin+"\"");
         jsonStr.append("}");
         return jsonStr.toString();
     }
