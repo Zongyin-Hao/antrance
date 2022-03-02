@@ -1,5 +1,9 @@
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -69,7 +73,7 @@ public class AntranceIns extends NanoHTTPD  {
         // stmtLog序列化成json
         // json格式:
         // { "projectId"(当前程序的项目id, 用户指定):"com.example.debugapp",
-        //   "status"(程序正常/崩溃):true/false,
+        //   "status"(程序正常/崩溃):"true/false",
         //   "stmts"(程序运行过程中执行的语句id):[0, 3, 8001, 10234],
         //   "eventids"(语句关联的eventids, 1<<0表示init覆盖):["9","3","1","2"],
         //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
@@ -77,71 +81,51 @@ public class AntranceIns extends NanoHTTPD  {
         //   ],
         //   "stackTraceOrigin": "原始栈信息"
         // }
-        // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖, 因此这里采用最原始的json生成方式
-        StringBuilder jsonStr = new StringBuilder("{");
-        jsonStr.append("\"projectId\":").append("\""+projectId+"\",");
-        jsonStr.append("\"status\":").append("\""+status+"\",");
-        jsonStr.append("\"stmts\":[");
-        boolean empty = true;
-        for (int i = 0; i < stmtTableSize; i++) {
-            // chang stmtTable to stmtTable2
-//            if (stmtTable[i] != 0) {
-//                if (!empty) jsonStr.append(",");
-//                empty = false;
-//                jsonStr.append(i);
-//            }
-            if (stmtTable2.get(i) != 0) {
-                if (!empty) jsonStr.append(",");
-                empty = false;
-                jsonStr.append(i);
-            }
-        }
-        jsonStr.append("],");
-
-        // add event id for covered codes
-        jsonStr.append("\"eventids\":[");
-        empty = true;
-        for (int i = 0; i < stmtTableSize; i++) {
-            if (stmtTable2.get(i) != 0) {
-                if (!empty) jsonStr.append(",");
-                empty = false;
-                jsonStr.append("\""+stmtTable2.get(i)+"\"");
-            }
-        }
-        jsonStr.append("],");
-
-        jsonStr.append("\"stackTrace\":[");
-        if (error != null) {
-            empty = true;
-            for (StackTraceElement stackTraceElement : error.getStackTrace()) {
-                if (!empty) jsonStr.append(",");
-                empty = false;
-                jsonStr.append("\""+stackTraceElement.getClassName()+"@"+stackTraceElement.getLineNumber()+"\"");
-            }
-            Throwable cause = error.getCause();
-            if (cause != null) {
-                System.out.println("<<<<<<<<<<Cause>>>>>>>>>>");
-                cause.printStackTrace();
-                for (StackTraceElement stackTraceElement : cause.getStackTrace()) {
-                    if (!empty) jsonStr.append(",");
-                    empty = false;
-                    jsonStr.append("\""+stackTraceElement.getClassName()+"@"+stackTraceElement.getLineNumber()+"\"");
+        // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖
+        JSONObject stmtLog = new JSONObject();
+        try {
+            stmtLog.put("projectId", projectId);
+            stmtLog.put("status", String.valueOf(status));
+            JSONArray stmts = new JSONArray();
+            for (int i = 0; i < stmtTableSize; i++) {
+                if (stmtTable2.get(i) != 0) {
+                    stmts.put(i);
                 }
-            } else {
-                System.out.println("<<<<<<<<<<!Cause>>>>>>>>>>");
             }
+            stmtLog.put("stmts", stmts);
+            JSONArray eventids = new JSONArray();
+            for (int i = 0; i < stmtTableSize; i++) {
+                if (stmtTable2.get(i) != 0) {
+                    eventids.put(String.valueOf(stmtTable2.get(i)));
+                }
+            }
+            stmtLog.put("eventids", eventids);
+            JSONArray stackTrace = new JSONArray();
+            if (error != null) {
+                for (StackTraceElement stackTraceElement : error.getStackTrace()) {
+                    stackTrace.put(stackTraceElement.getClassName()+"@"+stackTraceElement.getLineNumber());
+                }
+                Throwable cause = error.getCause();
+                if (cause != null) {
+                    for (StackTraceElement stackTraceElement : cause.getStackTrace()) {
+                        stackTrace.put(stackTraceElement.getClassName()+"@"+stackTraceElement.getLineNumber());
+                    }
+                }
+            }
+            stmtLog.put("stackTrace", stackTrace);
+            String stackTraceOrigin = "";
+            if (error != null) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                error.printStackTrace(pw);
+                stackTraceOrigin = sw.toString();
+            }
+            stmtLog.put("stackTraceOrigin", stackTraceOrigin);
+        } catch (JSONException ex) {
+            // 键为null或使用json不支持的数字格式(NaN, infinities)
+            throw new RuntimeException(ex);
         }
-        jsonStr.append("],");
-        String stackTraceOrigin = "";
-        if (error != null) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            error.printStackTrace(pw);
-            stackTraceOrigin = sw.toString();
-        }
-        jsonStr.append("\"stackTraceOrigin\":").append("\""+stackTraceOrigin+"\"");
-        jsonStr.append("}");
-        return jsonStr.toString();
+        return stmtLog.toString();
     }
 
     // for MyCrash
@@ -157,51 +141,38 @@ public class AntranceIns extends NanoHTTPD  {
         //   "stackTrace"(status为false时表示出现了uncaught exception, 需记录栈调用信息, status true时为空): [
         //     "类@语句在文件中的源码行"
         //   ]
+        //   "stackTraceOrigin": "原始栈信息"
         // }
-        // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖, 因此这里采用最原始的json生成方式
-        StringBuilder jsonStr = new StringBuilder("{");
-        jsonStr.append("\"projectId\":").append("\""+projectId+"\",");
-        jsonStr.append("\"status\":").append("\"false\",");
-        jsonStr.append("\"stmts\":[");
-        boolean empty = true;
-        for (int i = 0; i < stmtTableSize; i++) {
-            // chang stmtTable to stmtTable2
-//            if (stmtTable[i] != 0) {
-//                if (!empty) jsonStr.append(",");
-//                empty = false;
-//                jsonStr.append(i);
-//            }
-            if (stmtTable2.get(i) != 0) {
-                if (!empty) jsonStr.append(",");
-                empty = false;
-                jsonStr.append(i);
+        // 由于AntranceIns是插桩插到app中的, 尽量不要使用外部依赖
+        JSONObject stmtLog = new JSONObject();
+        try {
+            stmtLog.put("projectId", projectId);
+            stmtLog.put("status", "false");
+            JSONArray stmts = new JSONArray();
+            for (int i = 0; i < stmtTableSize; i++) {
+                if (stmtTable2.get(i) != 0) {
+                    stmts.put(i);
+                }
             }
-        }
-        jsonStr.append("],");
-
-        // add event id for covered codes
-        jsonStr.append("\"eventids\":[");
-        empty = true;
-        for (int i = 0; i < stmtTableSize; i++) {
-            if (stmtTable2.get(i) != 0) {
-                if (!empty) jsonStr.append(",");
-                empty = false;
-                jsonStr.append("\""+stmtTable2.get(i)+"\"");
+            stmtLog.put("stmts", stmts);
+            JSONArray eventids = new JSONArray();
+            for (int i = 0; i < stmtTableSize; i++) {
+                if (stmtTable2.get(i) != 0) {
+                    eventids.put(String.valueOf(stmtTable2.get(i)));
+                }
             }
+            stmtLog.put("eventids", eventids);
+            JSONArray stackTrace = new JSONArray();
+            for (String crashMsg : crashStack) {
+                stackTrace.put(crashMsg);
+            }
+            stmtLog.put("stackTrace", stackTrace);
+            stmtLog.put("stackTraceOrigin", stackTraceOrigin);
+        } catch (JSONException ex) {
+            // 键为null或使用json不支持的数字格式(NaN, infinities)
+            throw new RuntimeException(ex);
         }
-        jsonStr.append("],");
-
-        jsonStr.append("\"stackTrace\":[");
-        empty = true;
-        for (String crashMsg : crashStack) {
-            if (!empty) jsonStr.append(",");
-            empty = false;
-            jsonStr.append("\""+crashMsg+"\"");
-        }
-        jsonStr.append("],");
-        jsonStr.append("\"stackTraceOrigin\":").append("\""+stackTraceOrigin+"\"");
-        jsonStr.append("}");
-        return jsonStr.toString();
+        return stmtLog.toString();
     }
 
     public static AntranceIns antranceIns = null;
@@ -239,7 +210,7 @@ public class AntranceIns extends NanoHTTPD  {
         if (x - Integer.parseInt(y) == 624) {
             projectId = "x.x.x";
             stmtTableSize = 15;
-            myCrashJson(null);
+            myCrashJson(null, null);
         }
 
         stmtTable = new int[stmtTableSize];
