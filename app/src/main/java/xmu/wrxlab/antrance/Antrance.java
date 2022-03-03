@@ -13,6 +13,8 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -31,10 +33,18 @@ import java.util.Map;
 import fi.iki.elonen.NanoHTTPD;
 
 public class Antrance extends AccessibilityService {
+
     /** AntranceServer端口 */
     private static final int myPort = 8624;
     /** AntranceIns地址 */
     private static final String address = "127.0.0.1:8625";
+
+    /** notification channel */
+    private static final String CHANNEL_NAME = "crash";
+    private static final String CHANNEL_DESCRIPTION = "crash";
+    private static final String CHANNEL_ID = "8";
+    private static final int NOTIFICATION_ID = 8;
+
 
     /** 提供stmtlog和uitree服务, 单例 */
     class AntranceServer extends NanoHTTPD {
@@ -129,12 +139,26 @@ public class Antrance extends AccessibilityService {
          */
         private synchronized void setStmtLog(String log) {
             stmtLog = log;
-            Handler handlerThree=new Handler(Looper.getMainLooper());
-            handlerThree.post(new Runnable(){
-                public void run(){
-                    Toast.makeText(getApplicationContext() ,"antrance: crash!", Toast.LENGTH_LONG).show();
-                }
-            });
+            // toast有时会导致antrance卡死, 换成notification
+//            Handler handlerThree=new Handler(Looper.getMainLooper());
+//            handlerThree.post(new Runnable(){
+//                public void run(){
+//                    Toast.makeText(getApplicationContext() ,"antrance: crash!", Toast.LENGTH_LONG).show();
+//                }
+//            });
+            String contentText = log;
+            if (contentText.length() >= 50) {
+                contentText = contentText.substring(0, 50);
+                contentText += "...";
+            }
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(Antrance.this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_android_black_24dp)
+                    .setContentTitle("antrance: app crashes!")
+                    .setContentText(contentText)
+                    .setPriority(NotificationCompat.PRIORITY_MAX);
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(Antrance.this);
+            // notificationId is a unique int for each notification that you must define
+            notificationManager.notify(NOTIFICATION_ID, builder.build());
         }
 
         /**
@@ -234,9 +258,28 @@ public class Antrance extends AccessibilityService {
     public void onInterrupt() {
     }
 
+    /**
+     * 由于您必须先创建通知渠道，然后才能在 Android 8.0 及更高版本上发布任何通知，因此应在应用启动时立即执行这段代码.
+     * 反复调用这段代码是安全的，因为创建现有通知渠道不会执行任何操作.
+     */
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance);
+            channel.setDescription(CHANNEL_DESCRIPTION);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        createNotificationChannel();
         try {
             antranceServer.start();
             Log.i("antrance", "antrance start on " + myPort);
