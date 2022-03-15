@@ -10,6 +10,7 @@ import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.tasks.TaskAction;
 
 import java.io.BufferedWriter;
@@ -46,15 +47,25 @@ public class ABuilder implements Plugin<Project> {
                 } // end of for
                 // abuilder任务
 
-                if (debugVariant != null) {
-                    ABuilderTask abuilderTask = project.getTasks().create("abuilder", ABuilderTask.class);
-                    abuilderTask.init(debugVariant);
-                    // clean->ABuilderTransform->上传apk
-                    debugVariant.getAssemble().dependsOn(project.getTasks().findByName("clean"));
-                    abuilderTask.dependsOn(debugVariant.getAssemble());
+                ABuilderTask abuilderTask = project.getTasks().create("abuilder", ABuilderTask.class);
+                if (ABuilderConfig.v().isAg2()) {
+                    // 兼容模式
+                    abuilderTask.ag2Init(ABuilderConfig.v().getProject(), ABuilderConfig.v().getMainActivity(),
+                            ABuilderConfig.v().getAg2SourcePath(), ABuilderConfig.v().getAg2ApplicationId(),
+                            ABuilderConfig.v().getAg2APKPath());
+                    abuilderTask.dependsOn(project.getTasks().findByName("assemble"));
                 } else {
-                    throw new RuntimeException("debugVariant == null!");
+                    if (debugVariant != null) {
+                        abuilderTask.init(ABuilderConfig.v().getProject(), ABuilderConfig.v().getMainActivity(),
+                                debugVariant);
+                        // clean->ABuilderTransform->上传apk
+                        debugVariant.getAssemble().dependsOn(project.getTasks().findByName("clean"));
+                        abuilderTask.dependsOn(debugVariant.getAssemble());
+                    } else {
+                        throw new RuntimeException("!ag2 && debugVariant == null!");
+                    }
                 }
+
             } // end of execute
         }); // end of afterEvaluate
     }

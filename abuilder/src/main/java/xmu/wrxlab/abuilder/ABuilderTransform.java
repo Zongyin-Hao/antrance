@@ -132,21 +132,37 @@ public class ABuilderTransform extends Transform {
         }
         // 2.1 app source
         SrcTree srcTree = new SrcTree();
-        for (AndroidSourceSet sourceSet : app.getSourceSets()) {
-            if (sourceSet.getCompileOnlyConfigurationName().startsWith("compile")) {
-                for (File src : sourceSet.getJava().getSrcDirs()) {
-                    if (!src.exists()) {
-                        continue;
+        if (myConfig.isAg2()) {
+            File src = new File(myConfig.getAg2SourcePath());
+            if (!src.exists()) {
+                throw new RuntimeException("ag2Source does not exist! " + src.getAbsolutePath());
+            }
+            System.out.println("[ag2src] " + src.getAbsolutePath());
+            // 拷贝源码
+            FileUtils.copyDirectory(src, mySrc);
+            // 创建SrcTree
+            URI srcURI = src.toURI();
+            listFilesForFolder(src, (file) -> {
+                String rPath = srcURI.relativize(file.toURI()).getPath();
+                srcTree.addSrc(file, rPath);
+            });
+        } else {
+            for (AndroidSourceSet sourceSet : app.getSourceSets()) {
+                if (sourceSet.getCompileOnlyConfigurationName().startsWith("compile")) {
+                    for (File src : sourceSet.getJava().getSrcDirs()) {
+                        if (!src.exists()) {
+                            continue;
+                        }
+                        System.out.println("[src] " + src.getAbsolutePath());
+                        // 拷贝源码
+                        FileUtils.copyDirectory(src, mySrc);
+                        // 创建SrcTree
+                        URI srcURI = src.toURI();
+                        listFilesForFolder(src, (file) -> {
+                            String rPath = srcURI.relativize(file.toURI()).getPath();
+                            srcTree.addSrc(file, rPath);
+                        });
                     }
-                    System.out.println("[src] " + src.getAbsolutePath());
-                    // 拷贝源码
-                    FileUtils.copyDirectory(src, mySrc);
-                    // 创建SrcTree
-                    URI srcURI = src.toURI();
-                    listFilesForFolder(src, (file) -> {
-                        String rPath = srcURI.relativize(file.toURI()).getPath();
-                        srcTree.addSrc(file, rPath);
-                    });
                 }
             }
         }
