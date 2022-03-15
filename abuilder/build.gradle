@@ -2,12 +2,12 @@ apply plugin: 'java'
 apply plugin: 'maven'
 
 dependencies {
-    implementation gradleApi()
-    implementation 'com.android.tools.build:gradle:3.0.1'
+    compile gradleApi()
+    compile 'com.android.tools.build:gradle:2.3.3'
 }
 
 group = 'xmu.wrxlab'
-version = '1.0.0'
+version = '0.0.1'
 //打包上传到本地
 uploadArchives{
     repositories {

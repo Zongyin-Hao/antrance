@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * gradle插件解析出的配置
+ * gradle插件解析出的配置, 兼容模式, 需要手动配置ag2SourcePath, 1.0.0以上不支持兼容模式
  */
 public class ABuilderConfig {
     public static ABuilderConfig ABuilderConfig = new ABuilderConfig();
@@ -36,23 +36,9 @@ public class ABuilderConfig {
     private List<String> exSources = new ArrayList<>();
 
     /**
-     * 是否需要开启兼容模式, 开启兼容模式后无法使用debugVariant和sourceSet, 需要自己配置apk路径, application id以及源文件路径
-     * 1.0.0以上不支持兼容模式
-     */
-    private boolean ag2 = false;
-    /**
      * 兼容模式下需要手动配置源码路径
      */
     private String ag2SourcePath = "";
-
-    /**
-     * 兼容模式下需要手动配置applicationId
-     */
-    private String ag2ApplicationId = "";
-    /**
-     * 兼容模式下需要手动配置apk路径, 不清楚的话先编译一下, 看看apk在哪输出
-     */
-    private String ag2APKPath = "";
 
     public String getAddress() {
         return address;
@@ -109,36 +95,12 @@ public class ABuilderConfig {
         this.exModules = exModules;
     }
 
-    public boolean isAg2() {
-        return ag2;
-    }
-
-    public void setAg2(boolean ag2) {
-        this.ag2 = ag2;
-    }
-
     public String getAg2SourcePath() {
         return ag2SourcePath;
     }
 
     public void setAg2SourcePath(String ag2SourcePath) {
         this.ag2SourcePath = ag2SourcePath;
-    }
-
-    public String getAg2ApplicationId() {
-        return ag2ApplicationId;
-    }
-
-    public void setAg2ApplicationId(String ag2ApplicationId) {
-        this.ag2ApplicationId = ag2ApplicationId;
-    }
-
-    public String getAg2APKPath() {
-        return ag2APKPath;
-    }
-
-    public void setAg2APKPath(String ag2APKPath) {
-        this.ag2APKPath = ag2APKPath;
     }
 
     public void output() {
@@ -148,16 +110,7 @@ public class ABuilderConfig {
         System.out.println("[MyConfig] mainActivity = " + mainActivity);
         System.out.println("[MyConfig] exModule = " + exModules.size());
         System.out.println("[MyConfig] exSource = " + exSources.size());
-        System.out.println("[MyConfig] ag2 = " + ag2);
         System.out.println("[MyConfig] ag2SourcePath = " + ag2SourcePath);
-        System.out.println("[MyConfig] ag2ApplicationId = " + ag2ApplicationId);
-        System.out.println("[MyConfig] ag2APKPath = " + ag2APKPath);
-        if (!ag2 && (!ag2SourcePath.equals("") || !ag2ApplicationId.equals("") || !ag2APKPath.equals(""))) {
-            throw new RuntimeException("!ag2 && (!ag2SourcePath.equals(\"\") || !ag2ApplicationId.equals(\"\") || !ag2APKPath.equals(\"\"))");
-        }
-        if (ag2 && (ag2SourcePath.equals("") || ag2ApplicationId.equals("") || ag2APKPath.equals(""))) {
-            throw new RuntimeException("ag2 && (ag2SourcePath.equals(\"\") || ag2ApplicationId.equals(\"\") || ag2APKPath.equals(\"\"))");
-        }
     }
 
 }

@@ -1,3 +1,2 @@
 include ':abuilder'
-include ':app'
 rootProject.name = "antrance"
