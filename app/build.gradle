@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "xmu.wrxlab.antrance"
-        minSdkVersion 24
+        minSdkVersion 20
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
