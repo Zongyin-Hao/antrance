@@ -115,7 +115,8 @@ public class ABuilderTransform extends Transform {
         // 1.创建数据库/projects
         // ================================================================================
         // 在数据库中创建项目目录
-        File myProject = new File(myConfig.getDatabase(), myConfig.getProjectId());
+        File myProjects = new File(myConfig.getDatabase(), "projects");
+        File myProject = new File(myProjects, myConfig.getProjectId());
         if (!myProject.exists()) {
             myProject.mkdirs();
         }
