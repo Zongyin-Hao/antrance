@@ -115,9 +115,10 @@ public class ABuilderTransform extends Transform {
         // 1.创建数据库
         // ================================================================================
         // 在数据库中创建项目目录
-        File myProject = new File(myConfig.getDatabase(), myConfig.getProjectId());
+        File myProjects = new File(myConfig.getDatabase(), "projects");
+        File myProject = new File(myProjects, myConfig.getProjectId());
         if (!myProject.exists()) {
-            myProject.mkdir();
+            myProject.mkdirs();
         }
 
         // 2.copy源码, 创建源码树(解析源码与class的对应关系, 后面会根据srcTree过滤要分析的class)
@@ -187,7 +188,6 @@ public class ABuilderTransform extends Transform {
             FileUtils.cleanDirectory(myClasses);
         }
         // 3.1 如上面介绍的, 先将要分析到的jar/class的src/dst路径保存下来
-        // todo 实现jar逻辑
         List<File> srcJars = new ArrayList<>();
         List<File> dstJars = new ArrayList<>();
         List<File> srcClasses = new ArrayList<>();
@@ -244,7 +244,6 @@ public class ABuilderTransform extends Transform {
 
         // 我们需要在第一次分析时告诉soot这是新一轮分析的开始(id为0), 从而使soot能正确维护stmtTable
         int sootId = 0;
-        // todo 实现jar逻辑
         for (int i = 0; i < srcJars.size(); i++) {
             File src = srcJars.get(i);
             File dst = dstJars.get(i);
