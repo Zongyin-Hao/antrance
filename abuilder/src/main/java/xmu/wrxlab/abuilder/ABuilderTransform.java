@@ -293,7 +293,7 @@ public class ABuilderTransform extends Transform {
                     }
                 }
 
-                UzipTojar.toJar(myConfig.getDatabase() + "/kernel/command.sh"
+                UzipTojar.toJar(myConfig.getDatabase() + "/kernel/jar.sh"
                         , jarOutput.getAbsolutePath(), dst.getAbsolutePath());
 
                 // 更新sootId
